@@ -44,6 +44,8 @@ internal static class MainMenuService
     {
         // Query editor
         ("View Schema", 0x0100),
+        ("Open Definition", 0x0110),
+        ("Locate in Object Explorer", 0x0120),
         ("Format SQL", 0x0200),
         ("Qualify Columns", 0x0230),
         ("Parse Statistics", 0x0d00),
@@ -58,6 +60,7 @@ internal static class MainMenuService
         ("Find in Results", 0x0c20),
         ("Go to Column...", 0x0c30),
         ("Grid Aggregates", 0x0c10),
+        ("Copy as IN Filter", 0x0c40),
         ("Script Results as INSERT", 0x0c00),
         (null, 0),
         // Monitoring dashboards

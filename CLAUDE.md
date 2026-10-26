@@ -79,6 +79,7 @@ load automatically when a file in that folder is opened, but not while merely pl
 | Formatting (`PostProcessor`, alias/CASE/comment passes) | `SQLExtended/Formatting/CLAUDE.md` |
 | Qualify Columns — alias every table, prefix every column (`ColumnQualifier`) | `SQLExtended/Qualify/CLAUDE.md` |
 | The session log, and what the soft catches swallow | `SQLExtended/Diagnostics/CLAUDE.md` |
+| Open Definition (F12) and connected query windows (`QueryWindowOpener`) | `SQLExtended/Definition/CLAUDE.md` |
 | Schema export (SMO scripter, folder-compare shape) | `SQLExtended/Export/CLAUDE.md` |
 | Encrypted modules (DAC, the XOR technique) | `SQLExtended/Decryption/CLAUDE.md` |
 | SQL Search, including Agent job steps | `SQLExtended/Search/CLAUDE.md` |

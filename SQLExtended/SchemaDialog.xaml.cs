@@ -195,6 +195,33 @@ public partial class SchemaDialog : Window
         Close();
     }
 
+    /// <summary>
+    /// Hands the active tab's script to a new query window. The dialog closes first: it is modal, and a window opened
+    /// under a modal dialog cannot be typed into until the dialog goes.
+    /// </summary>
+    private void OpenInScriptWindow_Click(object sender, RoutedEventArgs e)
+    {
+        bool tempTable = SchemaTabs.SelectedItem == TempTableTab;
+        string script = tempTable ? TempTableTextBox.Text : SchemaTextBox.Text;
+        string connectionString = _connectionString;
+        string objectName = _objectName;
+
+        Close();
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                // The temp-table version is a script of our own, not the object's definition; there is no CREATE to rewrite.
+                Definition.OpenDefinitionCommand.OpenScript(script, connectionString, objectName, applyMode: !tempTable);
+            }
+            catch (Exception ex)
+            {
+                Diagnostics.SQLExtendedLog.Warning("SchemaDialog", "Open in Script Window failed", ex);
+            }
+        }), System.Windows.Threading.DispatcherPriority.Input);
+    }
+
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         var activeEditor = SchemaTabs.SelectedItem == TempTableTab ? TempTableTextBox : SchemaTextBox;

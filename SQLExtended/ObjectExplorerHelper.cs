@@ -6,6 +6,7 @@ using SQLExtended.ObjectExplorer;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -876,45 +877,121 @@ internal static class ObjectExplorerHelper
     public static async Task<bool> RevealObjectAsync(
         string serverName, string database, string schema, string objectName, string objectType)
     {
+        var target = new SchemaQueryService.ResolvedObject { Database = database, Schema = schema, Name = objectName, Type = objectType };
+        return await RevealAsync(serverName, target, connectWith: null, strictServer: false, activate: false) >= RevealOutcome.Partial;
+    }
+
+    /// <summary>How far <see cref="RevealAsync"/> got. Ordered: anything from <see cref="Partial"/> up selected a node.</summary>
+    internal enum RevealOutcome
+    {
+        NoObjectExplorer,
+        ServerNotConnected,
+        DatabaseNotFound,
+        /// <summary>A folder or the object itself never appeared; the deepest node reached is selected.</summary>
+        Partial,
+        Found
+    }
+
+    /// <summary>
+    /// Expands Object Explorer down to <paramref name="target"/> and selects it.
+    ///
+    /// <para><paramref name="connectWith"/> is a <c>UIConnectionInfo</c> to connect Object Explorer with when the server is
+    /// not in the tree yet. <paramref name="strictServer"/> refuses to fall back to whichever server is first in the tree —
+    /// the validation window has always done that, but for Locate (issue #7) selecting a same-named table on another
+    /// server is a wrong answer that looks like a right one. <paramref name="activate"/> brings the Object Explorer window
+    /// forward first, so the expansion is seen and the keyboard lands in the tree. Must be called on the UI thread.</para>
+    /// </summary>
+    internal static async Task<RevealOutcome> RevealAsync(
+        string serverName, SchemaQueryService.ResolvedObject target, object connectWith, bool strictServer, bool activate)
+    {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+        if (activate)
+        {
+            try { (Package.GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE)?.ExecuteCommand("View.ObjectExplorer"); } catch { }
+        }
 
         IObjectExplorerService oeService = null;
         try { oeService = ServiceCacheProxy.GetService(typeof(IObjectExplorerService)) as IObjectExplorerService; } catch { }
         if (oeService == null)
             try { oeService = Package.GetGlobalService(typeof(IObjectExplorerService)) as IObjectExplorerService; } catch { }
-        if (oeService == null) return false;
+        if (oeService == null) return RevealOutcome.NoObjectExplorer;
 
         object treeView = FindTreeView(oeService);
-        if (treeView == null) return false;
+        if (treeView == null) return RevealOutcome.NoObjectExplorer;
 
         // Locate the server node (present without expansion). It may sit inside a SQLExtended server-group
         // folder, so search recurses through those folders — but not into a server's own children.
-        object node = FindServerNode(treeView, n => ServerNodeMatches(GetNodeText(n), serverName))
-                      ?? FindServerNode(treeView, _ => true);
-        if (node == null) return false;
+        Func<object, bool> isServer = n => ServerNodeMatches(GetNodeText(n), serverName);
+        object node = FindServerNode(treeView, isServer);
+        if (node == null && connectWith != null && TryConnect(oeService, connectWith))
+            node = await WaitForServerNodeAsync(treeView, isServer);
+        if (node == null && !strictServer)
+            node = FindServerNode(treeView, _ => true);
+        if (node == null) return RevealOutcome.ServerNotConnected;
 
         node = await ExpandAndFindAsync(treeView, node, n => TextEquals(GetNodeText(n), "Databases"));
-        if (node == null) return false;
+        if (node == null) return RevealOutcome.DatabaseNotFound;
 
-        node = await ExpandAndFindAsync(treeView, node, n => TextEquals(GetNodeText(n), database));
-        if (node == null) { return false; }
-
-        foreach (string folder in FolderChainFor(objectType))
+        // The four system databases sit in their own folder under Databases.
+        if (IsSystemDatabase(target.Database))
         {
-            var next = await ExpandAndFindAsync(treeView, node, n => TextEquals(GetNodeText(n), folder));
-            if (next == null) { SelectNode(treeView, node); return true; } // stop at deepest found
+            node = await ExpandAndFindAsync(treeView, node, n => TextEquals(GetNodeText(n), "System Databases"));
+            if (node == null) return RevealOutcome.DatabaseNotFound;
+        }
+
+        node = await ExpandAndFindAsync(treeView, node, n => TextEquals(GetNodeText(n), target.Database));
+        if (node == null) return RevealOutcome.DatabaseNotFound;
+
+        var steps = PathFor(target);
+        if (steps.Count == 0) { SelectNode(treeView, node); return RevealOutcome.Partial; } // unmapped type — as far as the database
+
+        foreach (var step in steps)
+        {
+            var next = await ExpandAndFindAsync(treeView, node, step);
+            if (next == null) { SelectNode(treeView, node); return RevealOutcome.Partial; } // stop at deepest found
             node = next;
         }
 
-        if (FolderChainFor(objectType).Count > 0)
+        SelectNode(treeView, node);
+        return RevealOutcome.Found;
+    }
+
+    private static bool IsSystemDatabase(string database) =>
+        database != null && (TextEquals(database, "master") || TextEquals(database, "model") || TextEquals(database, "msdb") || TextEquals(database, "tempdb"));
+
+    /// <summary>
+    /// The nodes under the database node that lead to <paramref name="target"/>: its folders, then the object. A trigger
+    /// hangs off its table or view (<c>Tables › dbo.Orders › Triggers › trg_Orders</c>) and is listed without a schema;
+    /// everything else is listed as <c>schema.name</c>.
+    /// </summary>
+    private static List<Func<object, bool>> PathFor(SchemaQueryService.ResolvedObject target)
+    {
+        var steps = new List<Func<object, bool>>();
+        string type = (target.Type ?? "").Trim().ToUpperInvariant();
+
+        if (type == "TR")
         {
-            string leaf = (string.IsNullOrEmpty(schema) ? "" : schema + ".") + objectName;
-            var leafNode = await ExpandAndFindAsync(treeView, node, n => LeafMatches(GetNodeText(n), leaf, objectName));
-            if (leafNode != null) node = leafNode;
+            var parentFolders = FolderChainFor(target.ParentType);
+            if (parentFolders.Count == 0 || string.IsNullOrEmpty(target.ParentName)) return steps;
+            foreach (string folder in parentFolders) steps.Add(n => TextEquals(GetNodeText(n), folder));
+            steps.Add(Leaf(target.ParentSchema, target.ParentName));
+            steps.Add(n => TextEquals(GetNodeText(n), "Triggers"));
+            steps.Add(Leaf(null, target.Name));
+            return steps;
         }
 
-        SelectNode(treeView, node);
-        return true;
+        var folders = FolderChainFor(type);
+        if (folders.Count == 0) return steps;
+        foreach (string folder in folders) steps.Add(n => TextEquals(GetNodeText(n), folder));
+        steps.Add(Leaf(target.Schema, target.Name));
+        return steps;
+    }
+
+    private static Func<object, bool> Leaf(string schema, string name)
+    {
+        string qualified = (string.IsNullOrEmpty(schema) ? "" : schema + ".") + name;
+        return n => LeafMatches(GetNodeText(n), qualified, name);
     }
 
     /// <summary>Folder names (under the database node) leading to an object of the given sys.objects type.</summary>
@@ -924,14 +1001,60 @@ internal static class ObjectExplorerHelper
         {
             case "U": return new List<string> { "Tables" };
             case "V": return new List<string> { "Views" };
+            case "SN": return new List<string> { "Synonyms" };
             case "P":
             case "PC": return new List<string> { "Programmability", "Stored Procedures" };
             case "FN":
             case "FS": return new List<string> { "Programmability", "Functions", "Scalar-valued Functions" };
             case "IF":
-            case "TF": return new List<string> { "Programmability", "Functions", "Table-valued Functions" };
-            default: return new List<string>(); // unmapped (e.g. triggers) — navigate as far as the database
+            case "TF":
+            case "FT": return new List<string> { "Programmability", "Functions", "Table-valued Functions" };
+            default: return new List<string>(); // unmapped — navigate as far as the database
         }
+    }
+
+    /// <summary>
+    /// Asks Object Explorer to connect with a <c>UIConnectionInfo</c> — <c>IObjectExplorerService.ConnectToServer</c>, reached
+    /// by reflection because the parameter's type lives in an assembly this project does not reference. Connecting uses the
+    /// credentials the query window already holds, so no dialog is shown.
+    /// </summary>
+    private static bool TryConnect(IObjectExplorerService oeService, object uiConnectionInfo)
+    {
+        try
+        {
+            Type type = oeService.GetType();
+            var method = type.GetInterfaces().Concat(new[] { type })
+                .SelectMany(t => t.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                .FirstOrDefault(m => m.Name.EndsWith("ConnectToServer", StringComparison.Ordinal)
+                                     && m.GetParameters().Length == 1
+                                     && m.GetParameters()[0].ParameterType.IsInstanceOfType(uiConnectionInfo));
+            if (method == null)
+            {
+                Diagnostics.SQLExtendedLog.Warning("ObjectExplorer", "IObjectExplorerService.ConnectToServer was not found; cannot connect Object Explorer.");
+                return false;
+            }
+            method.Invoke(oeService, new[] { uiConnectionInfo });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.SQLExtendedLog.Warning("ObjectExplorer", "Connecting Object Explorer failed", ex);
+            return false;
+        }
+    }
+
+    /// <summary>A connect returns before the server's node is in the tree; it appears once the connection is made.</summary>
+    private static async Task<object> WaitForServerNodeAsync(object treeView, Func<object, bool> isServer)
+    {
+        const int timeoutMs = 20000;
+        const int stepMs = 100;
+        for (int waited = 0; waited < timeoutMs; waited += stepMs)
+        {
+            await Task.Delay(stepMs);
+            var found = FindServerNode(treeView, isServer);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     /// <summary>
@@ -1023,6 +1146,9 @@ internal static class ObjectExplorerHelper
     {
         if (string.IsNullOrEmpty(text)) return false;
         text = text.Trim();
+        // A table can carry a suffix: "dbo.Orders (System-Versioned)", "dbo.Edges (Graph)".
+        int suffix = text.IndexOf(" (", StringComparison.Ordinal);
+        if (suffix > 0) text = text.Substring(0, suffix);
         return string.Equals(text, qualified, StringComparison.OrdinalIgnoreCase)
             || string.Equals(text, bareName, StringComparison.OrdinalIgnoreCase);
     }

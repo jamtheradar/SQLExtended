@@ -143,6 +143,24 @@
         </Strings>
       </Button>
 
+      <!-- Open Definition — the object under the cursor straight into a new query window, no preview (issue #6) -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="OpenDefinitionCommandId" priority="0x0102" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <Strings>
+          <ButtonText>Open Definition</ButtonText>
+          <ToolTipText>Script the object under the cursor into a new query window on the same server and database (F12)</ToolTipText>
+        </Strings>
+      </Button>
+
+      <!-- Locate in Object Explorer — expand Object Explorer to the object under the cursor (issue #7) -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="LocateInObjectExplorerCommandId" priority="0x0104" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <Strings>
+          <ButtonText>Locate in Object Explorer</ButtonText>
+          <ToolTipText>Expand Object Explorer to the object under the cursor and select it (Ctrl+[, S)</ToolTipText>
+        </Strings>
+      </Button>
+
       <!-- Format SQL command — formats selected text or entire document -->
       <Button guid="guidSsmsSchemaViewerCmdSet" id="FormatSqlCommandId" priority="0x0110" type="Button">
         <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
@@ -417,6 +435,15 @@
         </Strings>
       </Button>
 
+      <!-- Copy as IN Filter — the selected cells of one column as IN (...) (issue #5) -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="CopyAsInFilterCommandId" priority="0x0105" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="ResultsGridContextGroup" />
+        <Strings>
+          <ButtonText>Copy as IN Filter</ButtonText>
+          <ToolTipText>Copy the selected cells of one column as an IN (...) list (Ctrl+Shift+I)</ToolTipText>
+        </Strings>
+      </Button>
+
       <!-- Toolbar: Cache status indicator (read-only display text) -->
       <Button guid="guidSsmsSchemaViewerCmdSet" id="ToolbarCacheStatusId" priority="0x0100" type="Button">
         <Parent guid="guidSsmsSchemaViewerCmdSet" id="ToolbarCacheGroup" />
@@ -443,12 +470,21 @@
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="GridAggregatesCommandId" priority="0x0110">
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedGridGroup"/>
     </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="CopyAsInFilterCommandId" priority="0x0115">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedGridGroup"/>
+    </CommandPlacement>
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="ScriptResultsInsertCommandId" priority="0x0120">
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedGridGroup"/>
     </CommandPlacement>
 
     <!-- Query editor right-click > SQLExtended -->
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="SchemaViewerCommandId" priority="0x0100">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
+    </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="OpenDefinitionCommandId" priority="0x0102">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
+    </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="LocateInObjectExplorerCommandId" priority="0x0104">
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
     </CommandPlacement>
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="FormatSqlCommandId" priority="0x0110">
@@ -531,6 +567,22 @@
                 editor="guidVSStd97"
                 key1="D"
                 mod1="Control Shift"/>
+
+    <!-- F12: Open Definition, as Go to Definition is in Visual Studio. Query windows only: F12 means nothing to this
+         command anywhere else, and Global F12 is the shell's own Edit.GoToDefinition. -->
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="OpenDefinitionCommandId"
+                editor="guidSqlQueryEditorScope"
+                key1="VK_F12"/>
+
+    <!-- Ctrl+[, S: Locate in Object Explorer - Visual Studio's chord for Sync with Active Document, the analogue the
+         issue names. Query windows only, like F12 above. -->
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="LocateInObjectExplorerCommandId"
+                editor="guidSqlQueryEditorScope"
+                key1="VK_OEM_4"
+                mod1="Control"
+                key2="S"/>
 
     <!-- Ctrl+K, Ctrl+F: Format SQL. Also Ctrl+K, Ctrl+Q in query windows only, the chord SSMS 22's own SqlFormatter
          extension uses for Format Document - so people used to it get this formatter. Not bound Global, where it would
@@ -680,6 +732,19 @@
                 editor="guidVSStd97"
                 key1="K"
                 mod1="Control Alt"/>
+    <!-- Ctrl+Shift+I for Copy as IN Filter (the chord issue #5 suggests). It takes the chord over from
+         Edit.ReverseIncrementalSearch, so it is bound in the SQL Query Editor scope as well as Global: the Text Editor
+         binding would otherwise win in a query window. -->
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="CopyAsInFilterCommandId"
+                editor="guidSqlQueryEditorScope"
+                key1="I"
+                mod1="Control Shift"/>
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="CopyAsInFilterCommandId"
+                editor="guidVSStd97"
+                key1="I"
+                mod1="Control Shift"/>
   </KeyBindings>
 
   <Symbols>
@@ -707,6 +772,8 @@
 
       <!-- Commands -->
       <IDSymbol name="SchemaViewerCommandId" value="0x0100" />
+      <IDSymbol name="OpenDefinitionCommandId" value="0x0110" />
+      <IDSymbol name="LocateInObjectExplorerCommandId" value="0x0120" />
       <IDSymbol name="FormatSqlCommandId" value="0x0200" />
       <IDSymbol name="FormatOptionsCommandId" value="0x0210" />
       <IDSymbol name="SnippetsCommandId" value="0x0220" />
@@ -735,6 +802,7 @@
       <IDSymbol name="GridAggregatesCommandId" value="0x0c10" />
       <IDSymbol name="GridFindCommandId" value="0x0c20" />
       <IDSymbol name="GoToColumnCommandId" value="0x0c30" />
+      <IDSymbol name="CopyAsInFilterCommandId" value="0x0c40" />
       <IDSymbol name="StatisticsCommandId" value="0x0d00" />
       <IDSymbol name="AgMonitorCommandId" value="0x0e00" />
       <IDSymbol name="PerfMonitorCommandId" value="0x0f00" />

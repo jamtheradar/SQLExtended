@@ -190,3 +190,24 @@ keys carry on from there. It exists for the wide result set, where the column wa
 
 `GridColumnMatcher` is free of the grid assembly; `SQLExtended.Tests/ResultsGrid/GridColumnMatcherTests.cs` pins the
 ranking, because a wrong order is never an error: the top item is just a column the user did not mean, and Enter goes there.
+
+## Copy as IN Filter
+
+`ResultsGrid/CopyAsInFilterCommand.cs` (Ctrl+Shift+I, the grid's right-click menu, the SQLExtended menu; issue #5)
+copies the selected cells of **one** column as `IN (...)`: one value per line, indented four spaces, grid order, NULLs
+left out.
+
+- **The selection comes from `GridSelectionReader.ResolveRanges`**, made internal for this, so the whole-column and
+  UI-vs-storage-index traps above are handled in one place. Rows from several Ctrl+Click blocks are merged, sorted and
+  de-duplicated by row index (values themselves are not de-duplicated).
+- **More than one data column is refused, not flattened** — the menu item greys out (`BeforeQueryStatus`, which reads
+  only the shape, never the rows) and the shortcut says so on the status bar. A whole-row selection counts as many columns.
+- **Over `ResultsGridReader.MaxRows` copies nothing**, for the same reason the aggregates cap refuses: a filter missing
+  values runs and matches fewer rows, and nothing says so.
+- **Quoting goes by the column's SQL type** (`QEResultSet.GetFormattedDataTypeName`), not by whether the text looks
+  numeric — a `varchar` of `007` pasted unquoted becomes the number 7. Only without a type does `InFilterBuilder` look at
+  the values, and then a leading zero keeps a value quoted. `N'…'` only for a Unicode column *and* a non-ASCII value.
+  `InFilterBuilder` is linked into the tests (`SQLExtended.Tests/ResultsGrid/InFilterBuilderTests.cs`).
+- **Ctrl+Shift+I is taken over from `Edit.ReverseIncrementalSearch`**, deliberately. It is bound in the SQL Query
+  Editor scope as well as Global, because the Text Editor binding beats a Global one in a query window (the scope
+  rule in the root CLAUDE.md). Pressed in the editor it copies from the window's grid, as the menu item does.

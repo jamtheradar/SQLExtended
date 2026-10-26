@@ -211,6 +211,13 @@ public sealed class SQLExtendedSettings
 
     public bool TempTableDropIfExists { get; set; } = true;
 
+    /// <summary>
+    /// How Open Definition (F12) scripts a procedure, view, function or trigger. CREATE OR ALTER by default, so the window
+    /// it opens runs as it stands — the stored CREATE would fail against the object it was scripted from.
+    /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
+    public Definition.DefinitionScriptMode DefinitionScriptMode { get; set; } = Definition.DefinitionScriptMode.CreateOrAlter;
+
     /// <summary>Remembered size of the Schema Viewer dialog (0 = use default).</summary>
     public double SchemaDialogWidth { get; set; } = 0;
     public double SchemaDialogHeight { get; set; } = 0;

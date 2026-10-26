@@ -151,6 +151,12 @@
                     ToolTip="Copy schema script to clipboard (Ctrl+C also works)"
                     Margin="0,0,8,0"/>
 
+            <Button Content="Open in Script Window"
+                    Style="{StaticResource ActionButton}"
+                    Click="OpenInScriptWindow_Click"
+                    ToolTip="Open this script in a new query window on the same server and database (F12 from the editor skips this preview)"
+                    Margin="0,0,8,0"/>
+
             <Button Content="Close"
                     Style="{StaticResource ActionButton}"
                     Click="Close_Click"

@@ -490,6 +490,20 @@
                                   Style="{StaticResource DarkCheck}"/>
                         <TextBlock Style="{StaticResource DimLabel}"
                                    Text="Prepends DROP TABLE IF EXISTS #TableName; above the CREATE TABLE when using the Temp Table tab in the search preview."/>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="Open Definition"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Style="{StaticResource SettingLabel}" Text="Script modules as:"/>
+                            <!-- Order matches DefinitionScriptMode -->
+                            <ComboBox x:Name="CboDefinitionScriptMode" Style="{StaticResource DarkCombo}" Width="150">
+                                <ComboBoxItem Content="CREATE"/>
+                                <ComboBoxItem Content="ALTER"/>
+                                <ComboBoxItem Content="CREATE OR ALTER"/>
+                            </ComboBox>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource DimLabel}"
+                                   Text="The statement Open Definition (F12) and the preview's Open in Script Window use for procedures, views, functions and triggers. Tables are always scripted as CREATE TABLE. CREATE OR ALTER needs SQL Server 2016 SP1 or later."/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

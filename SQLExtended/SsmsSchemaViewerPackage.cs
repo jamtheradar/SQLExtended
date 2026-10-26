@@ -91,6 +91,12 @@ public sealed class SsmsSchemaViewerPackage : AsyncPackage
         try { await SchemaViewerCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "SchemaViewerCommand init failed", ex); }
 
+        try { await Definition.OpenDefinitionCommand.InitializeAsync(this); }
+        catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "OpenDefinitionCommand init failed", ex); }
+
+        try { await ObjectExplorer.LocateInObjectExplorerCommand.InitializeAsync(this); }
+        catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "LocateInObjectExplorerCommand init failed", ex); }
+
         try { await FormatCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "FormatCommand init failed", ex); }
 
@@ -132,6 +138,9 @@ public sealed class SsmsSchemaViewerPackage : AsyncPackage
 
         try { await ResultsGrid.Columns.GoToColumnCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "GoToColumnCommand init failed", ex); }
+
+        try { await ResultsGrid.CopyAsInFilterCommand.InitializeAsync(this); }
+        catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "CopyAsInFilterCommand init failed", ex); }
 
         // Only does anything when the (off by default) "bring the window to the front when cells are selected"
         // setting is on — that is the one case needing a grid watcher with the window closed.

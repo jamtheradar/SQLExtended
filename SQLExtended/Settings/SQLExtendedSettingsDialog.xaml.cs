@@ -126,6 +126,7 @@ public partial class SQLExtendedSettingsDialog : Window
             ChkSearchDefinitions.IsChecked = _settings.DefaultSearchDefinitions;
             TxtMaxResults.Text = _settings.DefaultMaxSearchResults.ToString();
             ChkTempTableDropIfExists.IsChecked = _settings.TempTableDropIfExists;
+            CboDefinitionScriptMode.SelectedIndex = (int)_settings.DefinitionScriptMode;
 
             // History
             ChkHistoryEnabled.IsChecked = _settings.HistoryEnabled;
@@ -235,6 +236,7 @@ public partial class SQLExtendedSettingsDialog : Window
         _settings.DefaultSearchDefinitions = ChkSearchDefinitions.IsChecked == true;
         _settings.DefaultMaxSearchResults = ParseInt(TxtMaxResults.Text, 200);
         _settings.TempTableDropIfExists = ChkTempTableDropIfExists.IsChecked == true;
+        _settings.DefinitionScriptMode = (Definition.DefinitionScriptMode)Math.Max(0, CboDefinitionScriptMode.SelectedIndex);
 
         // History
         _settings.HistoryEnabled = ChkHistoryEnabled.IsChecked == true;

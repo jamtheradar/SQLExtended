@@ -39,13 +39,46 @@ internal static class ServiceCacheProxy
     {
         try
         {
+            var uiConnInfo = GetActiveUIConnectionInfo();
+            return uiConnInfo == null ? null : BuildConnectionString(uiConnInfo);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// ServiceCache.ScriptFactory — SSMS's own factory for query windows, which can open one already connected
+    /// (<c>CreateNewBlankScript</c>). Null when SSMS's internals are not where they were.
+    /// </summary>
+    public static object GetScriptFactory()
+    {
+        try
+        {
             var scType = GetServiceCacheType();
             if (scType == null) return null;
 
-            // ServiceCache.ScriptFactory
             var sfProp = scType.GetProperty("ScriptFactory",
                 BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-            var scriptFactory = sfProp?.GetValue(null);
+            return sfProp?.GetValue(null);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The active query window's <c>UIConnectionInfo</c> itself, not a connection string built from it — what SSMS needs
+    /// handed back to open another window on the same connection, or to connect Object Explorer to it. Null when the
+    /// active window is not connected.
+    /// </summary>
+    public static object GetActiveUIConnectionInfo()
+    {
+        try
+        {
+            var scriptFactory = GetScriptFactory();
             if (scriptFactory == null) return null;
 
             // ScriptFactory.CurrentlyActiveWndConnectionInfo
@@ -57,10 +90,7 @@ internal static class ServiceCacheProxy
             // .UIConnectionInfo
             var uiConnProp = connInfoWrapper.GetType().GetProperty("UIConnectionInfo",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            var uiConnInfo = uiConnProp?.GetValue(connInfoWrapper);
-            if (uiConnInfo == null) return null;
-
-            return BuildConnectionString(uiConnInfo);
+            return uiConnProp?.GetValue(connInfoWrapper);
         }
         catch
         {

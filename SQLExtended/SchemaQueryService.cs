@@ -476,18 +476,83 @@ internal static class SchemaQueryService
         }
     }
 
+    /// <summary>
+    /// The schema an unqualified name means, the way SQL Server resolves it: the caller's default schema first, then
+    /// <c>dbo</c>. Every scriptable type, not only tables and views — <c>EXEC usp_GetOrders</c> names a procedure.
+    /// </summary>
     private static string ResolveSchema(SqlConnection conn, string objectName)
     {
         const string sql = @"
                 SELECT TOP 1 s.name
                 FROM sys.objects o
                 JOIN sys.schemas s ON o.schema_id = s.schema_id
-                WHERE o.name = @name AND o.type IN ('U','V')
-                ORDER BY CASE s.name WHEN 'dbo' THEN 0 ELSE 1 END";
+                WHERE o.name = @name AND o.type IN ('U','V','P','PC','FN','IF','TF','FS','TR')
+                ORDER BY CASE WHEN s.name = SCHEMA_NAME() THEN 0 WHEN s.name = 'dbo' THEN 1 ELSE 2 END";
 
         using var cmd = new SqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@name", objectName);
         return cmd.ExecuteScalar() as string;
+    }
+
+    /// <summary>An object as the server names it, with the table or view a trigger hangs off.</summary>
+    internal sealed class ResolvedObject
+    {
+        public string Database { get; set; }
+        public string Schema { get; set; }
+        public string Name { get; set; }
+        /// <summary><c>sys.objects.type</c>, trimmed: U, V, P, FN, TR, SN…</summary>
+        public string Type { get; set; }
+        public string ParentSchema { get; set; }
+        public string ParentName { get; set; }
+        public string ParentType { get; set; }
+
+        public string QualifiedName => $"{Database}.{Schema}.{Name}";
+    }
+
+    /// <summary>
+    /// Finds the object a name in the editor refers to — one, two or three part — in the database it names or, failing
+    /// that, the connection's own. Unqualified names resolve as <see cref="ResolveSchema"/> does. Null when there is no
+    /// such object, which includes one the login has no permission on: <c>sys.objects</c> only lists what the caller can see.
+    /// Runs a query, so keep it off the UI thread.
+    /// </summary>
+    internal static ResolvedObject ResolveObject(string connectionString, string objectName)
+    {
+        var (database, schema, name) = EditorHelper.ParseObjectName(objectName);
+        if (string.IsNullOrEmpty(name)) return null;
+
+        string effectiveConnStr = ConnectionHelper.GetConnectionStringForDatabase(connectionString, database);
+        using var conn = SqlConnectionFactory.Create(effectiveConnStr);
+        conn.Open();
+
+        const string sql = @"
+                SELECT TOP 1 DB_NAME(), s.name, o.name, o.type, ps.name, po.name, po.type
+                FROM sys.objects o
+                JOIN sys.schemas s ON o.schema_id = s.schema_id
+                LEFT JOIN sys.objects po ON po.object_id = o.parent_object_id
+                LEFT JOIN sys.schemas ps ON ps.schema_id = po.schema_id
+                WHERE o.name = @name AND (@schema IS NULL OR s.name = @schema)
+                  AND o.type IN ('U','V','P','PC','FN','IF','TF','FS','FT','TR','SN')
+                ORDER BY CASE WHEN s.name = SCHEMA_NAME() THEN 0 WHEN s.name = 'dbo' THEN 1 ELSE 2 END";
+
+        using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@name", name);
+        cmd.Parameters.AddWithValue("@schema", (object)schema ?? DBNull.Value);
+        cmd.CommandTimeout = 10;
+
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read()) return null;
+
+        string Text(int i) => reader.IsDBNull(i) ? null : reader.GetString(i).Trim();
+        return new ResolvedObject
+        {
+            Database = Text(0),
+            Schema = Text(1),
+            Name = Text(2),
+            Type = Text(3),
+            ParentSchema = Text(4),
+            ParentName = Text(5),
+            ParentType = Text(6)
+        };
     }
 
     private static string ModuleTypeLabel(string objectType) => objectType?.Trim() switch

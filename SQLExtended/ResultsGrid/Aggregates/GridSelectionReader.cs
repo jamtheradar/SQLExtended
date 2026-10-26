@@ -99,7 +99,7 @@ internal static class GridSelectionReader
         }
     }
 
-    private struct CellRange
+    internal struct CellRange
     {
         public long RowStart, RowEnd;
         public int ColStart, ColEnd;
@@ -124,7 +124,7 @@ internal static class GridSelectionReader
     /// </list>
     /// <para>Bounds are inclusive: <c>Width == Right - X + 1</c>.</para>
     /// </summary>
-    private static List<CellRange> ResolveRanges(GridControl grid, BlockOfCellsCollection blocks, long numRows, int numCols)
+    internal static List<CellRange> ResolveRanges(GridControl grid, BlockOfCellsCollection blocks, long numRows, int numCols)
     {
         GridSelectionType selectionType = grid.SelectionType;
         bool wholeColumns = selectionType == GridSelectionType.ColumnBlocks || selectionType == GridSelectionType.SingleColumn;

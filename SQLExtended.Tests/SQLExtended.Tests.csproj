@@ -88,6 +88,15 @@
   </ItemGroup>
 
   <!--
+    Copy as IN Filter's text, and Open Definition's USE + CREATE rewrite. Both free of the grid and the shell, and both
+    fail as a script that pastes and runs while answering the wrong question: an unquoted 007, a rewritten comment.
+  -->
+  <ItemGroup>
+    <Compile Include="..\SQLExtended\ResultsGrid\InFilterBuilder.cs" Link="ResultsGrid\InFilterBuilder.cs" />
+    <Compile Include="..\SQLExtended\Definition\DefinitionScript.cs" Link="Definition\DefinitionScript.cs" />
+  </ItemGroup>
+
+  <!--
     The grid-aggregate arithmetic and its formatting. Free of the GridControl assembly (that half lives in
     GridSelectionReader) so it can be linked here — and worth linking, because every mistake it can make is a
     plausible-looking number rather than an error.
