@@ -8,7 +8,7 @@ SQLExtended is an SSMS 22 extension (VSIX) providing schema viewing and SQL form
 
 Two main commands:
 - **View Schema** (Ctrl+Shift+D) — shows CREATE TABLE script, indexes, and foreign keys for the object under cursor
-- **Format SQL** (Ctrl+K, Ctrl+F) — formats T-SQL with customizable options
+- **Format SQL** (Ctrl+K, Ctrl+Y) — formats T-SQL with customizable options
 
 ## Build Commands
 
@@ -76,7 +76,7 @@ load automatically when a file in that folder is opened, but not while merely pl
 | Area | Notes |
 |------|-------|
 | Dark/light palette for every WPF window (`{DynamicResource Sqlx…}`, no colour literals) | `SQLExtended/Theme/CLAUDE.md` |
-| Formatting (`PostProcessor`, alias/CASE/comment passes, Format Selection) | `SQLExtended/Formatting/CLAUDE.md` |
+| Formatting (`PostProcessor`, alias/CASE/comment passes, Format Selection, Format With… and presets) | `SQLExtended/Formatting/CLAUDE.md` |
 | Qualify Columns — alias every table, prefix every column (`ColumnQualifier`) | `SQLExtended/Qualify/CLAUDE.md` |
 | Align On — line a token up across lines (`ColumnAligner`) | `SQLExtended/Align/CLAUDE.md` |
 | The session log, and what the soft catches swallow | `SQLExtended/Diagnostics/CLAUDE.md` |
@@ -139,6 +139,23 @@ both shipped broken. The comment above `<KeyBindings>` has the rule; check a new
 Keyboard ("Shortcut currently used by") with a reset keyboard scheme before shipping it. Microsoft's own SSMS 22
 extensions (`Extensions\Microsoft\*\.vsextension\extension.json`, `"shortcuts"`) win a Global clash with ours: Copilot
 has Ctrl+Alt+D/E/F/R, SqlFormatter Ctrl+K, Ctrl+Q, Presenter Mode Ctrl+Shift+F5.
+
+**Where Redgate SQL Prompt has the same command, use its chord** (its quick reference guide: F12 script object,
+Ctrl+F12 select in Object Explorer, Ctrl+K, Ctrl+Y format, Ctrl+B, Ctrl+Q / U / B / C qualify, uppercase, brackets,
+semicolons). Its users bring those habits; inventing a chord is how the earlier ones ended up clashing. Only commands
+with no Prompt equivalent get a chord of our own.
+
+**Bump the version in `[ProvideMenuResource("Menus.ctmenu", N)]` (`SsmsSchemaViewerPackage.cs`) with every `.vsct`
+change.** The shell keeps its own merged copy of each extension's command table and re-merges it only when that number
+changes (or on `Ssms.exe /setup`). Replacing the DLL is not enough: the build's copy into the Extensions folder deploys the
+new table and SSMS goes on using the old one, so every command added since is missing from Tools > Options > Keyboard
+and its shortcut does nothing — which looks exactly like a chord conflict. It sat at 1 from the import until issue #8,
+by which time six commands' shortcuts were missing. (The deploy also used to copy the *previous* build's pkgdef —
+`CopyToSsms` ran before `EnsurePkgDef` regenerated it — so a bump only reached SSMS on the build after; it now depends on it.)
+The shell only *looks* for changed extensions when `Extensions\extensions.configurationchanged` has a new timestamp —
+what an installer does — so `CopyToSsms` touches it; without that, even a bumped version goes unnoticed. The
+`Extensions` folder needs elevation to write, so on a dev box the touch usually fails and the build warns: after a
+`.vsct` change, close SSMS and run `Ssms.exe /updateconfiguration` (or `/setup`) once.
 
 The `.vsct` and the three `*.vsixmanifest` files at the project root — which is committed, which is
 generated, and which one `StampVsixVersion` actually edits — are documented in

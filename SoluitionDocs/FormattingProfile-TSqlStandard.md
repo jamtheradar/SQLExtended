@@ -1,6 +1,6 @@
 # T-SQL Standard Formatting Profile
 
-This is the set of **Format SQL** (Ctrl+K, Ctrl+F) options that reproduce the leading-comma /
+This is the set of **Format SQL** (Ctrl+K, Ctrl+Y) options that reproduce the leading-comma /
 stacked-SELECT / stacked-CTE / river-WHERE T-SQL style. Set them once in **SQLExtended → Format
 Options** (they're saved per profile — use **Save As...** to keep them under their own name).
 

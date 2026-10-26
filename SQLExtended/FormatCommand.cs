@@ -10,7 +10,7 @@ using Task = System.Threading.Tasks.Task;
 namespace SQLExtended;
 
 /// <summary>
-/// Command handler for Format SQL (Ctrl+K, Ctrl+F) and Format Options.
+/// Command handler for Format SQL (Ctrl+K, Ctrl+Y) and Format Options.
 /// Formats selected text or entire document using ScriptDom.
 /// </summary>
 internal sealed class FormatCommand

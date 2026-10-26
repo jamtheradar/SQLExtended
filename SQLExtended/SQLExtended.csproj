@@ -149,7 +149,10 @@
     <Error Condition="'@(_MissingSqlClientDependency)' != ''" Text="Microsoft.Data.SqlClient's shipped runtime closure is incomplete: @(_MissingSqlClientDependency, ', ') is listed in _SqlClientRuntimeDependency but was not produced in $(TargetDir). Packing the .vsix without it leaves SqlConnection's static constructor to throw FileNotFoundException on any SSMS build whose SSMS.exe.config does not redirect that assembly far enough. Re-derive the list in SQLExtended.csproj from Microsoft.Data.SqlClient.dll's GetReferencedAssemblies()." />
   </Target>
 
-  <Target Name="CopyToSsms" AfterTargets="Build">
+  <!-- DependsOnTargets="EnsurePkgDef": both run AfterTargets="Build", in declaration order, so without it this copied
+       bin's pkgdef before the build regenerated it and SSMS always ran the previous build's registration — including the
+       ProvideMenuResource version that decides whether the shell re-merges the command table. -->
+  <Target Name="CopyToSsms" AfterTargets="Build" DependsOnTargets="EnsurePkgDef">
     <MakeDir Directories="$(SsmsExtDir)" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SsmsExtDir)" />
     <Copy SourceFiles="$(TargetDir)$(TargetName).pkgdef" DestinationFolder="$(SsmsExtDir)" Condition="Exists('$(TargetDir)$(TargetName).pkgdef')" />
@@ -168,6 +171,15 @@
     <Copy SourceFiles="$(TargetDir)x64\SQLite.Interop.dll" DestinationFolder="$(SsmsExtDir)\x64" Condition="Exists('$(TargetDir)x64\SQLite.Interop.dll')" />
     <Copy SourceFiles="$(TargetDir)x86\SQLite.Interop.dll" DestinationFolder="$(SsmsExtDir)\x86" Condition="Exists('$(TargetDir)x86\SQLite.Interop.dll')" />
     <Copy SourceFiles="$(TargetDir)ICSharpCode.AvalonEdit.dll" DestinationFolder="$(SsmsExtDir)" Condition="Exists('$(TargetDir)ICSharpCode.AvalonEdit.dll')" />
+    <!-- The shell rebuilds its configuration — the pkgdef merge, and with it the command table's menus and key bindings —
+         only when this file's timestamp changes, which is what an installer does. Without the touch an xcopy deploy runs
+         the new DLL against the old command table: new commands missing from Tools > Options > Keyboard, their shortcuts
+         dead, their right-click items absent. The Extensions folder itself is usually not writable without elevation (only
+         our subfolder has been opened up), so a failed touch says what to run instead. -->
+    <Touch Files="$(SsmsExtDir)\..\extensions.configurationchanged" Condition="Exists('$(SsmsExtDir)\..\extensions.configurationchanged')" ContinueOnError="true">
+      <Output TaskParameter="TouchedFiles" ItemName="_SsmsConfigTouched" />
+    </Touch>
+    <Warning Condition="'@(_SsmsConfigTouched)' == ''" Text="Could not touch Extensions\extensions.configurationchanged (no write access), so SSMS will not notice a changed command table on its own. If the .vsct changed, close SSMS and run: Ssms.exe /updateconfiguration" />
   </Target>
 
   <ItemGroup>

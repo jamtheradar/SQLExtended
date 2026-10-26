@@ -1,10 +1,11 @@
 # Qualify Columns
 
-`QualifyColumnsCommand` (Ctrl+K, Ctrl+A; SQLExtended menu and editor right-click) runs `ColumnQualifier` over the
+`QualifyColumnsCommand` (Ctrl+B, Ctrl+Q — SQL Prompt's Qualify object names; SQLExtended menu and editor right-click) runs `ColumnQualifier` over the
 selection, or the whole document when nothing is selected — the same rule as Format SQL — under one undo step.
 It came from GitHub issue #3. **It shipped on Ctrl+K, Ctrl+Q and the shortcut never worked**: SSMS 22's own
 `Extensions\Microsoft\SSMS.SqlFormatter` binds that chord to Format Document in the same Global scope, the shell
-gives it to Microsoft's command, and neither the cache clear nor `/setup` changes that. Its replacement, Ctrl+K, Ctrl+A, is
+gives it to Microsoft's command, and neither the cache clear nor `/setup` changes that. (Since issue #8 it is on SQL Prompt's
+Ctrl+B, Ctrl+Q; what follows is why its previous chord needed the editor scope, which still applies.) Its replacement, Ctrl+K, Ctrl+A, was
 Edit.SwapAnchor in the Text Editor scope, which beats a Global binding — so it is bound in the **SQL Query Editor**
 scope (`guidSqlQueryEditorScope`), which beats Text Editor. Check a new chord against
 `ApplicationPrivateSettings.xml` (the shell's conflict records) and against the Text Editor scope's own bindings before shipping it. `ColumnQualifier` is free of the editor so the test project links it

@@ -9,7 +9,7 @@ namespace SQLExtended.ObjectExplorer;
 
 /// <summary>
 /// "Locate in Object Explorer" (issue #7) — expands Object Explorer to the object under the cursor, selects it and gives
-/// the tree the focus. Visual Studio's Sync with Active Document, and bound to its chord (Ctrl+[, S).
+/// the tree the focus. Bound to SQL Prompt's chord for Select in Object Explorer (Ctrl+F12).
 ///
 /// <para>The name is resolved against the server first (<see cref="SchemaQueryService.ResolveObject"/>), for three things
 /// the tree cannot tell us: which schema an unqualified name means, what kind of object it is — which decides the folder

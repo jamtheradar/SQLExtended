@@ -48,6 +48,10 @@ internal static class MainMenuService
         ("Locate in Object Explorer", 0x0120),
         ("Format SQL", 0x0200),
         ("Format Selection", 0x0250),
+        ("Format With...", 0x0260),
+        ("Uppercase Keywords", 0x0270),
+        ("Remove Brackets", 0x0271),
+        ("Insert Semicolons", 0x0272),
         ("Qualify Columns", 0x0230),
         ("Align On...", 0x0240),
         ("Parse Statistics", 0x0d00),
@@ -180,16 +184,31 @@ internal static class MainMenuService
     /// <summary>
     /// Every command on the menu with its current shortcuts, in menu order — what the Settings dialog's Keyboard Shortcuts
     /// tab lists, so the tab and the menu cannot disagree. A command with no binding has an empty list.
+    /// Format Preset 1–5 follow Format With…: they are on no menu (they exist to be bound to a key), so this tab is the one
+    /// place that shows which preset each slot holds and what, if anything, it is bound to.
     /// </summary>
     internal static List<(string Caption, IReadOnlyList<string> Shortcuts)> CommandShortcuts()
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         var dte = Package.GetGlobalService(typeof(SDTE)) as DTE;
         var rows = new List<(string, IReadOnlyList<string>)>();
+        IReadOnlyList<string> Bound(int id) => dte == null ? Array.Empty<string>() : Shortcuts(dte, id);
+
         foreach (var item in Items)
         {
-            if (item.Caption != null)
-                rows.Add((item.Caption, dte == null ? Array.Empty<string>() : Shortcuts(dte, item.CommandId)));
+            if (item.Caption == null)
+                continue;
+            rows.Add((item.Caption, Bound(item.CommandId)));
+
+            if (item.CommandId == FormatWithCommand.FormatWithCommandId)
+            {
+                var presets = Settings.SQLExtendedSettings.Load().GetFormatPresets();
+                for (int slot = 0; slot < FormatWithCommand.PresetSlots; slot++)
+                {
+                    string name = slot < presets.Count ? presets[slot].Name : "(no preset saved)";
+                    rows.Add(($"Format Preset {slot + 1} — {name}", Bound(FormatWithCommand.FormatPreset1CommandId + slot)));
+                }
+            }
         }
         return rows;
     }
@@ -203,10 +222,9 @@ internal static class MainMenuService
     }
 
     /// <summary>
-    /// The command's shortcuts as SSMS currently binds them ("Ctrl+K, Ctrl+F"), read rather than hard-coded so a user's own
+    /// The command's shortcuts as SSMS currently binds them ("Ctrl+K, Ctrl+Y"), read rather than hard-coded so a user's own
     /// reassignment shows. Query-editor scope first, as it wins at the keyboard; a chord bound in several scopes appears once.
-    /// Within that scope a chord bound nowhere else leads, so Format SQL shows Ctrl+K, Ctrl+Q (the query-window chord SSMS's
-    /// own formatter taught people) ahead of Ctrl+K, Ctrl+F, rather than in whatever order SSMS returns the bindings.
+    /// Within that scope a chord bound nowhere else leads, rather than whatever order SSMS returns the bindings in.
     /// </summary>
     private static IReadOnlyList<string> Shortcuts(DTE dte, int commandId)
     {

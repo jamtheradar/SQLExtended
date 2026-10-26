@@ -218,6 +218,16 @@ public sealed class SQLExtendedSettings
     [JsonConverter(typeof(StringEnumConverter))]
     public Definition.DefinitionScriptMode DefinitionScriptMode { get; set; } = Definition.DefinitionScriptMode.CreateOrAlter;
 
+    /// <summary>
+    /// Format With… presets, in slot order: the first five are Format Preset 1–5, which can be given shortcuts. Null until
+    /// the user saves one — read through <see cref="GetFormatPresets"/>, which supplies the defaults. Not initialised to the
+    /// defaults here: Json.NET adds a saved list's items to a list the constructor already filled, so every load would
+    /// prepend another copy of them.
+    /// </summary>
+    public List<Formatting.FormatPreset> FormatPresets { get; set; }
+
+    public List<Formatting.FormatPreset> GetFormatPresets() => FormatPresets?.ConvertAll(p => p.Clone()) ?? Formatting.FormatPreset.Defaults();
+
     /// <summary>Remembered size of the Schema Viewer dialog (0 = use default).</summary>
     public double SchemaDialogWidth { get; set; } = 0;
     public double SchemaDialogHeight { get; set; } = 0;

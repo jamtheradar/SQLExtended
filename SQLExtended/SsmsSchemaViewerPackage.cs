@@ -31,7 +31,10 @@ namespace SQLExtended;
 [ProvideAutoLoad(Microsoft.VisualStudio.Shell.Interop.UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 // Also auto-load when Object Explorer is present, so we can hook its context menu.
 [ProvideAutoLoad("d114938f-591c-46cf-a785-500a82d97410", PackageAutoLoadFlags.BackgroundLoad)]
-[ProvideMenuResource("Menus.ctmenu", 1)]
+// The 3 is the command table's version: bump it whenever the .vsct changes. The shell re-merges an extension's commands
+// and key bindings only when this changes (or on /setup), so a new command is otherwise missing from Tools > Options >
+// Keyboard and its shortcut does nothing, however many times the DLL is replaced.
+[ProvideMenuResource("Menus.ctmenu", 3)]
 [ProvideToolWindow(typeof(SqlSearchToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 400, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
 [ProvideToolWindow(typeof(SqlHistoryToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 400, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
 [ProvideToolWindow(typeof(ScriptLibraryToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 500, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
@@ -102,6 +105,9 @@ public sealed class SsmsSchemaViewerPackage : AsyncPackage
 
         try { await FormatSelectionCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "FormatSelectionCommand init failed", ex); }
+
+        try { await FormatWithCommand.InitializeAsync(this); }
+        catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "FormatWithCommand init failed", ex); }
 
         try { await Qualify.QualifyColumnsCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "QualifyColumnsCommand init failed", ex); }

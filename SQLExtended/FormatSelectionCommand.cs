@@ -37,7 +37,15 @@ internal sealed class FormatSelectionCommand
             _ = new FormatSelectionCommand(package, commandService);
     }
 
-    private void Execute(object sender, EventArgs e)
+    private void Execute(object sender, EventArgs e) =>
+        Run(_package, Title, (text, start, end) => SelectionFormatter.Format(text, start, end, FormatterOptions.Load()));
+
+    /// <summary>
+    /// Runs a formatter over the active query window: reads the text and the selection as offsets, asks
+    /// <paramref name="format"/> for a span and its replacement, and puts it back in one undo step with the result
+    /// selected. Shared by Format Selection and Format With… / the format presets.
+    /// </summary>
+    internal static void Run(AsyncPackage package, string title, Func<string, int, int, SelectionFormatResult> format)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -46,7 +54,7 @@ internal sealed class FormatSelectionCommand
             var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
             if (dte?.ActiveDocument?.Object("TextDocument") is not TextDocument textDocument)
             {
-                SetStatusBarText($"{Title}: no active query window.");
+                SetStatusBarText($"{title}: no active query window.");
                 return;
             }
 
@@ -58,10 +66,12 @@ internal sealed class FormatSelectionCommand
             int selStart = ToOffset(lineStarts, text, selection.TopPoint.Line, selection.TopPoint.LineCharOffset);
             int selEnd = selection.IsEmpty ? selStart : ToOffset(lineStarts, text, selection.BottomPoint.Line, selection.BottomPoint.LineCharOffset);
 
-            var result = SelectionFormatter.Format(text, selStart, selEnd, FormatterOptions.Load());
+            var result = format(text, selStart, selEnd);
+            if (result == null)
+                return;
             if (!result.Success)
             {
-                SetStatusBarText($"{Title}: {result.ErrorMessage}");
+                SetStatusBarText($"{title}: {result.ErrorMessage}");
                 return;
             }
 
@@ -74,11 +84,11 @@ internal sealed class FormatSelectionCommand
 
             if (start.GetText(end) == result.Replacement)
             {
-                SetStatusBarText($"{Title}: already formatted.");
+                SetStatusBarText($"{title}: nothing to change.{(result.Note == null ? "" : " " + result.Note)}");
                 return;
             }
 
-            dte.UndoContext.Open("Format Selection (SQLExtended)");
+            dte.UndoContext.Open($"{title} (SQLExtended)");
             try
             {
                 start.ReplaceText(end, result.Replacement, 0);
@@ -95,12 +105,12 @@ internal sealed class FormatSelectionCommand
             selection.MoveToLineAndOffset(startLine, startCol);
             selection.MoveToLineAndOffset(newEndLine, newEndCol, true);
 
-            SetStatusBarText($"{Title}: formatted lines {startLine}–{newEndLine}.");
+            SetStatusBarText($"{title}: formatted lines {startLine}–{newEndLine}.{(result.Note == null ? "" : " " + result.Note)}");
         }
         catch (Exception ex)
         {
-            Diagnostics.SQLExtendedLog.Error("FormatSelection", "Format Selection failed", ex);
-            VsShellUtilities.ShowMessageBox(_package, ex.Message, $"{Title} - Error", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            Diagnostics.SQLExtendedLog.Error("FormatSelection", $"{title} failed", ex);
+            VsShellUtilities.ShowMessageBox(package, ex.Message, $"{title} - Error", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
         }
     }
 

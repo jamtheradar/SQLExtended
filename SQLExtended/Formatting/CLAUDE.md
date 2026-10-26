@@ -195,3 +195,33 @@ Ctrl+Shift+F; issue #8). Format SQL is deliberately unchanged — it still forma
   with `GetText`; `AbsoluteCharOffset` counts CRLF as one character and drifts a line's worth per line.
 - Statement fragments include their semicolon, so `TrailingSemicolon = Always` does not leave `;;`
   (`TheSemicolon_IsNotDoubled`).
+
+## Format With… and presets
+
+`PresetFormatter` (pure; `PresetFormatterTests`), `FormatWithCommand.cs` and `Formatting/Ui/FormatWithWindow.xaml`
+(issue #8). The window lives in `Ui/` because the test project links `Formatting\*.cs` non-recursively and a WPF
+code-behind there would break the test build.
+
+- **Only "Full format" regenerates; every other rule is a token change.** The formatter rebuilds the script from
+  ScriptDom's AST, so its layout rules cannot be ticked one at a time — any of them means all of them. The issue
+  asked for "indentation, line breaks, comma placement" as separate ticks; the honest offer is Full format plus the
+  rules that change individual tokens: keyword case, function-name case (`PostProcessor.ApplyBuiltInFunctionCase`),
+  removing unneeded brackets, `LEFT OUTER JOIN` → `LEFT JOIN`, adding semicolons, tabs↔spaces, trimming trailing
+  whitespace. The dialog says this under the Full format box.
+- **The token rules walk `GetTokenStream`, not a regex over the text** — `PostProcessor`'s regex passes are why this
+  file has the history it has. Keyword case touches only tokens ScriptDom types as reserved words, so a column named
+  `Status` or `Date` (an Identifier token) is left as typed. If the tokens do not concatenate back to the exact input
+  the pass changes nothing.
+- **Semicolons need a parse** and are skipped with a note (shown on the status bar) when the text does not parse.
+  Containers (`BEGIN…END`, `IF`, `WHILE`, `TRY`, procedure/function/trigger/view bodies) get none themselves — their
+  last inner statement ends at the same offset, so they would get a second.
+- **Whitespace rules skip lines that start or end inside a multi-line string, quoted identifier or block comment.**
+- **Scope:** no selection → whole script; a selection → its whole lines, except Full format, which goes through
+  `SelectionFormatter` (whole statements).
+- **Presets live in `SQLExtendedSettings.FormatPresets`, null until the user saves one** (`GetFormatPresets` supplies
+  "Casing only" and "Full format"). Not initialised with the defaults: Json.NET adds a saved list's items to a list
+  the constructor already filled. The dialog writes settings as soon as a preset is saved, moved or deleted.
+- **Format Preset 1–5 are `CommandWellOnly` commands with no default shortcut** (`SQLExtended.FormatPreset1`…), the
+  slot being the preset's position in the list — Move up is how a preset changes slot. They are deliberately not in
+  `MainMenuService.Items`: they exist to be bound to a key, and the dialog's footer says where. `CommandShortcuts` adds
+  them after Format With… on the Settings dialog's Keyboard Shortcuts tab, each with the name of the preset in its slot.

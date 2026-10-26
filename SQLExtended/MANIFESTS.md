@@ -14,7 +14,7 @@ some variation of `extension.vsixmanifest`.
 ## `SsmsSchemaViewerPackage.vsct`
 
 The command table. It declares every menu, group and button the extension adds, plus the keybindings
-(`Ctrl+Shift+D`, `Ctrl+K, Ctrl+F`, …), and places them both in the top-level **SQLExtended** menu and
+(`Ctrl+Shift+D`, `Ctrl+K, Ctrl+Y`, …), and places them both in the top-level **SQLExtended** menu and
 the editor context menu.
 
 `SQLExtended.csproj` compiles it as a `VSCTCompile` item with `ResourceName=Menus.ctmenu`, which embeds

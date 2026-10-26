@@ -1,0 +1,167 @@
+<Window x:Class="SQLExtended.FormatWithWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Format With"
+        Width="640" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SqlxSurface}"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="/SQLExtended;component/Theme/DarkCombo.xaml"/>
+        </ResourceDictionary.MergedDictionaries>
+
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource SqlxControl}"/>
+            <Setter Property="Foreground" Value="{DynamicResource SqlxTextChrome}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SqlxBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+        </Style>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SqlxTextChrome}"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource SqlxSurfaceAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource SqlxTextChrome}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource SqlxTextChrome}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SqlxBorderStrong}"/>
+            <Setter Property="Padding" Value="3,2"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource SqlxTextChrome}"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <!-- Item chrome drawn here rather than left to the system theme, whose selection colours ignore SSMS's. -->
+        <Style x:Key="PresetItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource SqlxText}"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SqlxRowHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SqlxSelection}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource SqlxSelectionText}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <StackPanel Margin="16">
+        <TextBlock Text="Tick the rules to apply to the selection (whole lines), or to the whole script when nothing is selected."
+                   TextWrapping="Wrap" Foreground="{DynamicResource SqlxTextSubtle}"/>
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="210"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="Presets" FontWeight="SemiBold" Foreground="{DynamicResource SqlxHeading}" Margin="0,0,0,6"/>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
+                    <Button x:Name="MoveUpButton" Style="{StaticResource ActionButton}" Content="Move up" Margin="0" MinWidth="0" Click="MoveUp_Click"/>
+                    <Button x:Name="DeleteButton" Style="{StaticResource ActionButton}" Content="Delete" MinWidth="0" Click="Delete_Click"/>
+                </StackPanel>
+                <ListBox x:Name="PresetList" Height="200" Background="{DynamicResource SqlxSurfaceAlt}" BorderBrush="{DynamicResource SqlxBorderStrong}"
+                         ItemContainerStyle="{StaticResource PresetItemStyle}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectionChanged="PresetList_SelectionChanged" MouseDoubleClick="PresetList_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Slot}" Foreground="{DynamicResource SqlxTextMuted}" FontSize="11"
+                                           VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Rules" FontWeight="SemiBold" Foreground="{DynamicResource SqlxHeading}" Margin="0,0,0,6"/>
+
+                <CheckBox x:Name="FullFormatBox" Content="Full format — every Format SQL rule, with the active profile"
+                          Checked="Rule_Changed" Unchecked="Rule_Changed"/>
+                <TextBlock Text="Layout rules (line breaks, commas, indents) only exist together, as the full format. The rules below can each be applied alone."
+                           TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource SqlxTextMuted}" Margin="20,-4,0,10"/>
+
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Keywords" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="KeywordCaseCombo" Style="{StaticResource DarkCombo}" Height="24" Margin="0,0,0,6"
+                              SelectionChanged="Rule_Changed">
+                        <ComboBoxItem Content="Leave as is"/>
+                        <ComboBoxItem Content="UPPER"/>
+                        <ComboBoxItem Content="lower"/>
+                    </ComboBox>
+                    <TextBlock Grid.Row="1" Text="Function names" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="FunctionCaseCombo" Style="{StaticResource DarkCombo}" Height="24" Margin="0,0,0,6"
+                              SelectionChanged="Rule_Changed">
+                        <ComboBoxItem Content="Leave as is"/>
+                        <ComboBoxItem Content="UPPER"/>
+                        <ComboBoxItem Content="lower"/>
+                    </ComboBox>
+                    <TextBlock Grid.Row="2" Text="Indentation" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Row="2" Grid.Column="1" x:Name="IndentationCombo" Style="{StaticResource DarkCombo}" Height="24"
+                              SelectionChanged="Rule_Changed">
+                        <ComboBoxItem Content="Leave as is"/>
+                        <ComboBoxItem Content="Tabs"/>
+                        <ComboBoxItem Content="Spaces"/>
+                    </ComboBox>
+                </Grid>
+
+                <CheckBox x:Name="RemoveBracketsBox" Content="Remove brackets that are not needed  ([Name] → Name)" Checked="Rule_Changed" Unchecked="Rule_Changed"/>
+                <CheckBox x:Name="ShortJoinsBox" Content="LEFT OUTER JOIN → LEFT JOIN" Checked="Rule_Changed" Unchecked="Rule_Changed"/>
+                <CheckBox x:Name="SemicolonsBox" Content="Add missing semicolons" Checked="Rule_Changed" Unchecked="Rule_Changed"/>
+                <CheckBox x:Name="TrimBox" Content="Trim trailing whitespace" Checked="Rule_Changed" Unchecked="Rule_Changed"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Preset name" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <TextBox Grid.Column="1" x:Name="NameBox" TextChanged="NameBox_TextChanged"/>
+            <Button Grid.Column="2" x:Name="SaveButton" Style="{StaticResource ActionButton}" Content="Save preset" Click="Save_Click"/>
+        </Grid>
+
+        <TextBlock x:Name="HintText" Margin="0,12,0,0" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource SqlxTextMuted}"
+                   Text="The first five presets are Format Preset 1–5. Give them shortcuts in Tools › Options › Environment › Keyboard (search “FormatPreset”)."/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Style="{StaticResource ActionButton}" Content="Close" Click="Close_Click" IsCancel="True"/>
+            <Button x:Name="ApplyButton" Style="{StaticResource ActionButton}" Content="Apply" Click="Apply_Click" IsDefault="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

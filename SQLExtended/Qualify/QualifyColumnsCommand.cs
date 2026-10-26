@@ -10,7 +10,7 @@ using Task = System.Threading.Tasks.Task;
 namespace SQLExtended.Qualify;
 
 /// <summary>
-/// Qualify Columns (Ctrl+K, Ctrl+A): aliases every table in the selection's (or the document's) SELECTs and prefixes
+/// Qualify Columns (Ctrl+B, Ctrl+Q): aliases every table in the selection's (or the document's) SELECTs and prefixes
 /// each column with the alias of the table it belongs to, using the schema cache to know which table that is.
 /// </summary>
 internal sealed class QualifyColumnsCommand

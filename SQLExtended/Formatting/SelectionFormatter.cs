@@ -21,10 +21,13 @@ public sealed class SelectionFormatResult
 
     public string Replacement { get; private set; }
 
+    /// <summary>Something worth telling the user alongside success — a rule that was skipped, and why.</summary>
+    public string Note { get; private set; }
+
     internal static SelectionFormatResult Fail(string message) => new() { ErrorMessage = message };
 
-    internal static SelectionFormatResult Ok(int start, int end, string replacement) =>
-        new() { Success = true, Start = start, End = end, Replacement = replacement };
+    internal static SelectionFormatResult Ok(int start, int end, string replacement, string note = null) =>
+        new() { Success = true, Start = start, End = end, Replacement = replacement, Note = note };
 }
 
 /// <summary>

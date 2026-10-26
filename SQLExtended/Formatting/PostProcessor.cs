@@ -999,7 +999,7 @@ public static class PostProcessor
     /// Used by RemoveBrackets to decide which bracketed identifiers must keep their brackets.
     /// Keeping brackets is always safe, so this list errs toward inclusion.
     /// </summary>
-    private static readonly HashSet<string> ReservedKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> ReservedKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         // SQL Server reserved keywords
         "ADD", "ALL", "ALTER", "AND", "ANY", "AS", "ASC", "AUTHORIZATION", "BACKUP", "BEGIN",
@@ -1335,7 +1335,7 @@ public static class PostProcessor
     /// Strings, comments and bracketed identifiers are skipped with the same scanners the alias passes
     /// use; a bare Regex.Replace over the script would case the word "sum" inside a comment.
     /// </summary>
-    private static string ApplyBuiltInFunctionCase(string sql, FormatterOptions options)
+    internal static string ApplyBuiltInFunctionCase(string sql, FormatterOptions options)
     {
         if (string.IsNullOrEmpty(sql) || options.BuiltInFunctionCase == CasingOption.Unchanged)
             return sql;

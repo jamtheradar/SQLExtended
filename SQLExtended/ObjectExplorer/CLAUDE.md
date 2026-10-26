@@ -26,7 +26,7 @@ no decompiler needed, and it is how the folder question above was settled.
 
 ## Locate in Object Explorer
 
-`ObjectExplorer/LocateInObjectExplorerCommand.cs` (Ctrl+[, S — Visual Studio's Sync with Active Document chord; issue #7)
+`ObjectExplorer/LocateInObjectExplorerCommand.cs` (Ctrl+F12 — SQL Prompt's Select in Object Explorer chord; issue #7)
 expands the tree to the object under the cursor, selects it and gives the tree the focus. The walk is
 `ObjectExplorerHelper.RevealAsync`, which the validation window's `RevealObjectAsync` now wraps.
 

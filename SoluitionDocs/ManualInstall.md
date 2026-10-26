@@ -123,7 +123,7 @@ Write-Host "Deployed to $Dest. Launch SSMS with /setup the first time." -Foregro
 
 1. Launch SSMS
 2. **Tools → Extensions** — *SSMS Schema Viewer* should appear
-3. Try `Ctrl+Shift+D` on a table name, or `Ctrl+K, Ctrl+F` on selected SQL
+3. Try `Ctrl+Shift+D` on a table name, or `Ctrl+K, Ctrl+Y` on selected SQL
 
 ## To uninstall
 

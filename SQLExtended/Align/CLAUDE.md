@@ -26,5 +26,5 @@ linked into the tests (`SQLExtended.Tests/Align/ColumnAlignerTests.cs`).
 - **Ctrl+= is CodeAlignment's chord** (`VK_OEM_PLUS`), bound in the SQL Query Editor scope only. Not yet checked under
   Tools > Options > Keyboard on a reset scheme.
 
-Format Selection is in `Formatting/SelectionFormatter.cs` (see `Formatting/CLAUDE.md`). Not done from the issue yet:
-Format With… and presets with shortcuts.
+The selective-formatting half of the issue — Format Selection, Format With… and the presets — is in `Formatting/`
+(see `Formatting/CLAUDE.md`).

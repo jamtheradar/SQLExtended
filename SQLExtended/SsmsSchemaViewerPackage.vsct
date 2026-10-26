@@ -157,7 +157,7 @@
         <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
         <Strings>
           <ButtonText>Locate in Object Explorer</ButtonText>
-          <ToolTipText>Expand Object Explorer to the object under the cursor and select it (Ctrl+[, S)</ToolTipText>
+          <ToolTipText>Expand Object Explorer to the object under the cursor and select it (Ctrl+F12)</ToolTipText>
         </Strings>
       </Button>
 
@@ -166,7 +166,7 @@
         <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
         <Strings>
           <ButtonText>Format SQL</ButtonText>
-          <ToolTipText>Format the selected SQL or entire document (Ctrl+K, Ctrl+F)</ToolTipText>
+          <ToolTipText>Format the selected SQL or entire document (Ctrl+K, Ctrl+Y)</ToolTipText>
         </Strings>
       </Button>
 
@@ -179,12 +179,87 @@
         </Strings>
       </Button>
 
+      <!-- Format With... — tick rules for one run, or manage the presets (issue #8) -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="FormatWithCommandId" priority="0x0113" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <Strings>
+          <ButtonText>Format With...</ButtonText>
+          <ToolTipText>Apply only the formatting rules you choose, or a saved preset</ToolTipText>
+        </Strings>
+      </Button>
+
+      <!-- Single Format With rules on their own commands, at SQL Prompt's Ctrl+B chords -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="UppercaseKeywordsCommandId" priority="0x0113" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <Strings>
+          <ButtonText>Uppercase Keywords</ButtonText>
+          <ToolTipText>Uppercase keywords and built-in function names, leaving the layout alone (Ctrl+B, Ctrl+U)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="RemoveBracketsCommandId" priority="0x0113" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <Strings>
+          <ButtonText>Remove Brackets</ButtonText>
+          <ToolTipText>Remove square brackets that are not needed (Ctrl+B, Ctrl+B)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="InsertSemicolonsCommandId" priority="0x0113" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <Strings>
+          <ButtonText>Insert Semicolons</ButtonText>
+          <ToolTipText>Add a semicolon to every statement that lacks one (Ctrl+B, Ctrl+C)</ToolTipText>
+        </Strings>
+      </Button>
+
+      <!-- Format Preset 1-5 - apply a saved Format With preset with no dialog. CommandWellOnly: no menu entry, only a
+           name to bind a shortcut to under Tools > Options > Keyboard (SQLExtended.FormatPreset1...). -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="FormatPreset1CommandId" priority="0x0114" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <CommandFlag>CommandWellOnly</CommandFlag>
+        <Strings>
+          <ButtonText>Format Preset 1</ButtonText>
+          <CanonicalName>SQLExtended.FormatPreset1</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="FormatPreset2CommandId" priority="0x0114" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <CommandFlag>CommandWellOnly</CommandFlag>
+        <Strings>
+          <ButtonText>Format Preset 2</ButtonText>
+          <CanonicalName>SQLExtended.FormatPreset2</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="FormatPreset3CommandId" priority="0x0114" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <CommandFlag>CommandWellOnly</CommandFlag>
+        <Strings>
+          <ButtonText>Format Preset 3</ButtonText>
+          <CanonicalName>SQLExtended.FormatPreset3</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="FormatPreset4CommandId" priority="0x0114" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <CommandFlag>CommandWellOnly</CommandFlag>
+        <Strings>
+          <ButtonText>Format Preset 4</ButtonText>
+          <CanonicalName>SQLExtended.FormatPreset4</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="FormatPreset5CommandId" priority="0x0114" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <CommandFlag>CommandWellOnly</CommandFlag>
+        <Strings>
+          <ButtonText>Format Preset 5</ButtonText>
+          <CanonicalName>SQLExtended.FormatPreset5</CanonicalName>
+        </Strings>
+      </Button>
+
       <!-- Qualify Columns — aliases the tables and prefixes every column with its table's alias (issue #3) -->
       <Button guid="guidSsmsSchemaViewerCmdSet" id="QualifyColumnsCommandId" priority="0x0115" type="Button">
         <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
         <Strings>
           <ButtonText>Qualify Columns</ButtonText>
-          <ToolTipText>Alias every table and prefix each column with its table's alias, in the selection or entire document (Ctrl+K, Ctrl+A)</ToolTipText>
+          <ToolTipText>Alias every table and prefix each column with its table's alias, in the selection or entire document (Ctrl+B, Ctrl+Q)</ToolTipText>
         </Strings>
       </Button>
 
@@ -511,6 +586,18 @@
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="FormatSelectionCommandId" priority="0x0115">
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
     </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="FormatWithCommandId" priority="0x0117">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
+    </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="UppercaseKeywordsCommandId" priority="0x0118">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
+    </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="RemoveBracketsCommandId" priority="0x0119">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
+    </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="InsertSemicolonsCommandId" priority="0x011A">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
+    </CommandPlacement>
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="QualifyColumnsCommandId" priority="0x0120">
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
     </CommandPlacement>
@@ -599,41 +686,28 @@
                 editor="guidSqlQueryEditorScope"
                 key1="VK_F12"/>
 
-    <!-- Ctrl+[, S: Locate in Object Explorer - Visual Studio's chord for Sync with Active Document, the analogue the
-         issue names. Query windows only, like F12 above. -->
+    <!-- Where Redgate SQL Prompt has the same command, it has the same chord (its quick reference guide): F12 above,
+         Ctrl+F12, Ctrl+K, Ctrl+Y, and the Ctrl+B family. People who move from Prompt bring these with them. All are bound
+         in the SQL Query Editor scope only - each command works on the query window, and that scope beats the Text
+         Editor bindings VS gives some of these keys (Ctrl+F12 is Edit.GoToDeclaration there). -->
+
+    <!-- Ctrl+F12: Locate in Object Explorer (Prompt: Select in Object Explorer). -->
     <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
                 id="LocateInObjectExplorerCommandId"
                 editor="guidSqlQueryEditorScope"
-                key1="VK_OEM_4"
-                mod1="Control"
-                key2="S"/>
+                key1="VK_F12"
+                mod1="Control"/>
 
-    <!-- Ctrl+K, Ctrl+F: Format SQL. Also Ctrl+K, Ctrl+Q in query windows only, the chord SSMS 22's own SqlFormatter
-         extension uses for Format Document - so people used to it get this formatter. Not bound Global, where it would
-         fight that extension for the chord everywhere else. -->
+    <!-- Ctrl+K, Ctrl+Y: Format SQL (Prompt: Format SQL). -->
     <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
                 id="FormatSqlCommandId"
                 editor="guidSqlQueryEditorScope"
                 key1="K"
                 mod1="Control"
-                key2="F"
-                mod2="Control"/>
-    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
-                id="FormatSqlCommandId"
-                editor="guidVSStd97"
-                key1="K"
-                mod1="Control"
-                key2="F"
-                mod2="Control"/>
-    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
-                id="FormatSqlCommandId"
-                editor="guidSqlQueryEditorScope"
-                key1="K"
-                mod1="Control"
-                key2="Q"
+                key2="Y"
                 mod2="Control"/>
 
-    <!-- Ctrl+K, Ctrl+Shift+F: Format Selection - Format SQL's chord with Shift for the narrower job. Query windows only. -->
+    <!-- Ctrl+K, Ctrl+Shift+F: Format Selection. No Prompt equivalent; kept as it was. -->
     <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
                 id="FormatSelectionCommandId"
                 editor="guidSqlQueryEditorScope"
@@ -642,14 +716,40 @@
                 key2="F"
                 mod2="Control Shift"/>
 
-    <!-- Ctrl+K, Ctrl+A: Qualify Columns ("alias"). Query windows only - the command does nothing anywhere else, and a
-         Global copy would only lose to Edit.SwapAnchor. -->
+    <!-- Ctrl+B, Ctrl+Q: Qualify Columns (Prompt: Qualify object names). -->
     <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
                 id="QualifyColumnsCommandId"
                 editor="guidSqlQueryEditorScope"
-                key1="K"
+                key1="B"
                 mod1="Control"
-                key2="A"
+                key2="Q"
+                mod2="Control"/>
+
+    <!-- Ctrl+B, Ctrl+U: Uppercase Keywords (Prompt: Uppercase keywords). -->
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="UppercaseKeywordsCommandId"
+                editor="guidSqlQueryEditorScope"
+                key1="B"
+                mod1="Control"
+                key2="U"
+                mod2="Control"/>
+
+    <!-- Ctrl+B, Ctrl+B: Remove Brackets (Prompt: Add/remove square brackets - ours only removes the unneeded ones). -->
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="RemoveBracketsCommandId"
+                editor="guidSqlQueryEditorScope"
+                key1="B"
+                mod1="Control"
+                key2="B"
+                mod2="Control"/>
+
+    <!-- Ctrl+B, Ctrl+C: Insert Semicolons (Prompt: Insert semicolons). -->
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="InsertSemicolonsCommandId"
+                editor="guidSqlQueryEditorScope"
+                key1="B"
+                mod1="Control"
+                key2="C"
                 mod2="Control"/>
 
     <!-- Ctrl+=: Align On, CodeAlignment's chord (the extension issue #8 points to). Query windows only, like Qualify Columns. -->
@@ -820,6 +920,15 @@
       <IDSymbol name="QualifyColumnsCommandId" value="0x0230" />
       <IDSymbol name="AlignOnCommandId" value="0x0240" />
       <IDSymbol name="FormatSelectionCommandId" value="0x0250" />
+      <IDSymbol name="FormatWithCommandId" value="0x0260" />
+      <IDSymbol name="FormatPreset1CommandId" value="0x0261" />
+      <IDSymbol name="FormatPreset2CommandId" value="0x0262" />
+      <IDSymbol name="FormatPreset3CommandId" value="0x0263" />
+      <IDSymbol name="FormatPreset4CommandId" value="0x0264" />
+      <IDSymbol name="FormatPreset5CommandId" value="0x0265" />
+      <IDSymbol name="UppercaseKeywordsCommandId" value="0x0270" />
+      <IDSymbol name="RemoveBracketsCommandId" value="0x0271" />
+      <IDSymbol name="InsertSemicolonsCommandId" value="0x0272" />
       <IDSymbol name="RefreshCacheCommandId" value="0x0300" />
       <IDSymbol name="RefreshAllCacheCommandId" value="0x0310" />
       <IDSymbol name="ClearCacheCommandId" value="0x0320" />
