@@ -76,8 +76,9 @@ load automatically when a file in that folder is opened, but not while merely pl
 | Area | Notes |
 |------|-------|
 | Dark/light palette for every WPF window (`{DynamicResource Sqlx…}`, no colour literals) | `SQLExtended/Theme/CLAUDE.md` |
-| Formatting (`PostProcessor`, alias/CASE/comment passes) | `SQLExtended/Formatting/CLAUDE.md` |
+| Formatting (`PostProcessor`, alias/CASE/comment passes, Format Selection) | `SQLExtended/Formatting/CLAUDE.md` |
 | Qualify Columns — alias every table, prefix every column (`ColumnQualifier`) | `SQLExtended/Qualify/CLAUDE.md` |
+| Align On — line a token up across lines (`ColumnAligner`) | `SQLExtended/Align/CLAUDE.md` |
 | The session log, and what the soft catches swallow | `SQLExtended/Diagnostics/CLAUDE.md` |
 | Open Definition (F12) and connected query windows (`QueryWindowOpener`) | `SQLExtended/Definition/CLAUDE.md` |
 | Schema export (SMO scripter, folder-compare shape) | `SQLExtended/Export/CLAUDE.md` |

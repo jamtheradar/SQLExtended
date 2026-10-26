@@ -173,3 +173,25 @@ by **re-parsing the formatted output**, which is the only assertion that catches
 clause is still present in the text, so `Assert.Contains` passes just as happily. It also walks a comment
 down every line of a CTE script, because the positions that break are not the ones anyone thinks to write a
 case for.
+
+## Format Selection
+
+`SelectionFormatter` (pure; `SelectionFormatterTests`) and `FormatSelectionCommand.cs` at the project root (Ctrl+K,
+Ctrl+Shift+F; issue #8). Format SQL is deliberately unchanged — it still formats a selection exactly as selected.
+
+- **The span is chosen from a parse of the whole document**, because the formatter needs a fragment that parses and
+  a selection rarely is one. Every `TSqlStatement` is collected with its offsets; the span tried first is the
+  narrowest that covers the selection — the innermost statement under a caret, or the siblings the selection runs
+  from and to — then each enclosing statement outwards until one formats. That order is what keeps a SELECT inside
+  a procedure from reformatting the procedure, and what lifts a selection crossing THEN into ELSE to the IF (the
+  sibling span would hand the formatter `… ELSE …`, which does not parse). Whitespace at either end of a selection is
+  dropped first, or a selection that began on the blank line above a statement would take in its parent block.
+- **If the document does not parse, the selection's whole lines are formatted on their own** — the good part of a
+  broken script can still be formatted, which is the usual reason to want this command at all.
+- **`Reindent` pads every line after the first with the first line's own leading whitespace**, verbatim (tabs stay
+  tabs), skipping blank lines and any line that begins inside a multi-line string, quoted identifier or block comment
+  (found with ScriptDom's tokenizer over the formatted text). Padding inside a string changes its value.
+- **Offsets, not `AbsoluteCharOffset`.** The command maps the editor's line + `LineCharOffset` onto the text it read
+  with `GetText`; `AbsoluteCharOffset` counts CRLF as one character and drifts a line's worth per line.
+- Statement fragments include their semicolon, so `TrailingSemicolon = Always` does not leave `;;`
+  (`TheSemicolon_IsNotDoubled`).

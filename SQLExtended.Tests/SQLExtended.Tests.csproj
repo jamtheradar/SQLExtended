@@ -94,6 +94,7 @@
   <ItemGroup>
     <Compile Include="..\SQLExtended\ResultsGrid\InFilterBuilder.cs" Link="ResultsGrid\InFilterBuilder.cs" />
     <Compile Include="..\SQLExtended\Definition\DefinitionScript.cs" Link="Definition\DefinitionScript.cs" />
+    <Compile Include="..\SQLExtended\Align\ColumnAligner.cs" Link="Align\ColumnAligner.cs" />
   </ItemGroup>
 
   <!--

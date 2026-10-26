@@ -100,8 +100,14 @@ public sealed class SsmsSchemaViewerPackage : AsyncPackage
         try { await FormatCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "FormatCommand init failed", ex); }
 
+        try { await FormatSelectionCommand.InitializeAsync(this); }
+        catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "FormatSelectionCommand init failed", ex); }
+
         try { await Qualify.QualifyColumnsCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "QualifyColumnsCommand init failed", ex); }
+
+        try { await Align.AlignOnCommand.InitializeAsync(this); }
+        catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "AlignOnCommand init failed", ex); }
 
         try { await RefreshCacheCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "RefreshCacheCommand init failed", ex); }

@@ -170,12 +170,30 @@
         </Strings>
       </Button>
 
+      <!-- Format Selection — formats only the statements the selection touches, at their own indent (issue #8) -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="FormatSelectionCommandId" priority="0x0112" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <Strings>
+          <ButtonText>Format Selection</ButtonText>
+          <ToolTipText>Format only the statements the selection touches, or the one under the caret (Ctrl+K, Ctrl+Shift+F)</ToolTipText>
+        </Strings>
+      </Button>
+
       <!-- Qualify Columns — aliases the tables and prefixes every column with its table's alias (issue #3) -->
       <Button guid="guidSsmsSchemaViewerCmdSet" id="QualifyColumnsCommandId" priority="0x0115" type="Button">
         <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
         <Strings>
           <ButtonText>Qualify Columns</ButtonText>
           <ToolTipText>Alias every table and prefix each column with its table's alias, in the selection or entire document (Ctrl+K, Ctrl+A)</ToolTipText>
+        </Strings>
+      </Button>
+
+      <!-- Align On — lines a token (AS, ON, =, ...) up across the selected lines (issue #8) -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="AlignOnCommandId" priority="0x0116" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedMenuGroup" />
+        <Strings>
+          <ButtonText>Align On...</ButtonText>
+          <ToolTipText>Line up AS, ON, = or any token across the selected lines (Ctrl+=)</ToolTipText>
         </Strings>
       </Button>
 
@@ -490,7 +508,13 @@
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="FormatSqlCommandId" priority="0x0110">
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
     </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="FormatSelectionCommandId" priority="0x0115">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
+    </CommandPlacement>
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="QualifyColumnsCommandId" priority="0x0120">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
+    </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="AlignOnCommandId" priority="0x0125">
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="EditorContextEditGroup"/>
     </CommandPlacement>
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="StatisticsCommandId" priority="0x0130">
@@ -609,6 +633,15 @@
                 key2="Q"
                 mod2="Control"/>
 
+    <!-- Ctrl+K, Ctrl+Shift+F: Format Selection - Format SQL's chord with Shift for the narrower job. Query windows only. -->
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="FormatSelectionCommandId"
+                editor="guidSqlQueryEditorScope"
+                key1="K"
+                mod1="Control"
+                key2="F"
+                mod2="Control Shift"/>
+
     <!-- Ctrl+K, Ctrl+A: Qualify Columns ("alias"). Query windows only - the command does nothing anywhere else, and a
          Global copy would only lose to Edit.SwapAnchor. -->
     <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
@@ -618,6 +651,13 @@
                 mod1="Control"
                 key2="A"
                 mod2="Control"/>
+
+    <!-- Ctrl+=: Align On, CodeAlignment's chord (the extension issue #8 points to). Query windows only, like Qualify Columns. -->
+    <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
+                id="AlignOnCommandId"
+                editor="guidSqlQueryEditorScope"
+                key1="VK_OEM_PLUS"
+                mod1="Control"/>
 
     <!-- Ctrl+Shift+R: Refresh Schema Cache (takes the chord from SSMS's Refresh IntelliSense Local Cache, same job) -->
     <KeyBinding guid="guidSsmsSchemaViewerCmdSet"
@@ -778,6 +818,8 @@
       <IDSymbol name="FormatOptionsCommandId" value="0x0210" />
       <IDSymbol name="SnippetsCommandId" value="0x0220" />
       <IDSymbol name="QualifyColumnsCommandId" value="0x0230" />
+      <IDSymbol name="AlignOnCommandId" value="0x0240" />
+      <IDSymbol name="FormatSelectionCommandId" value="0x0250" />
       <IDSymbol name="RefreshCacheCommandId" value="0x0300" />
       <IDSymbol name="RefreshAllCacheCommandId" value="0x0310" />
       <IDSymbol name="ClearCacheCommandId" value="0x0320" />

@@ -47,7 +47,9 @@ internal static class MainMenuService
         ("Open Definition", 0x0110),
         ("Locate in Object Explorer", 0x0120),
         ("Format SQL", 0x0200),
+        ("Format Selection", 0x0250),
         ("Qualify Columns", 0x0230),
+        ("Align On...", 0x0240),
         ("Parse Statistics", 0x0d00),
         (null, 0),
         // Tool windows
