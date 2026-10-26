@@ -207,6 +207,10 @@ public sealed class SQLExtendedSettings
     public bool DefaultSearchDefinitions { get; set; } = true;
     public int DefaultMaxSearchResults { get; set; } = 200;
 
+    // SQL Search's "Match whole word" box. Not a default like the four above: it is the box's own last state,
+    // saved as it is toggled so a way of working survives an SSMS restart (as GridFind* does for Find in grid).
+    public bool SearchMatchWholeWord { get; set; } = false;
+
     // --- Schema View ---
 
     public bool TempTableDropIfExists { get; set; } = true;

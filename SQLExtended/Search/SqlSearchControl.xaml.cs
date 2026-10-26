@@ -93,6 +93,40 @@ public partial class SqlSearchControl : UserControl
         SearchObjectNamesCheck.IsChecked = settings.DefaultSearchObjectNames;
         SearchColumnNamesCheck.IsChecked = settings.DefaultSearchColumnNames;
         SearchDefinitionsCheck.IsChecked = settings.DefaultSearchDefinitions;
+
+        // Last state rather than a default, so restored without saving it straight back.
+        _isRestoringWholeWord = true;
+        try { MatchWholeWordCheck.IsChecked = settings.SearchMatchWholeWord; }
+        finally { _isRestoringWholeWord = false; }
+    }
+
+    private bool _isRestoringWholeWord;
+
+    /// <summary>
+    /// Saves the box's state as it changes, then re-runs the search: unlike the other boxes, toggling this one
+    /// is always a request to see the same term matched the other way, and a stale list would contradict the
+    /// highlighting the preview would then apply.
+    /// </summary>
+    private void MatchWholeWord_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isRestoringWholeWord) return;
+
+        try
+        {
+            var settings = SQLExtendedSettings.Current;
+            settings.SearchMatchWholeWord = MatchWholeWordCheck.IsChecked == true;
+            settings.Save();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SQLExtended] SQL Search whole-word save failed: {ex}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(SearchTextBox.Text))
+        {
+            _debounceTimer.Stop();
+            ExecuteSearch();
+        }
     }
 
     // --- Server / Database population ---
@@ -377,6 +411,7 @@ public partial class SqlSearchControl : UserControl
             SearchObjectNames = SearchObjectNamesCheck.IsChecked == true,
             SearchColumnNames = SearchColumnNamesCheck.IsChecked == true,
             SearchDefinitions = SearchDefinitionsCheck.IsChecked == true,
+            WholeWord = MatchWholeWordCheck.IsChecked == true,
             MaxResults = MaxResultsSetting()
         };
 
@@ -413,7 +448,7 @@ public partial class SqlSearchControl : UserControl
                 JobStepSearchService.Result jobResult = null;
                 if (searchJobSteps)
                 {
-                    jobResult = await JobStepSearchService.SearchAsync(connStr, searchTerm, options.MaxResults, token).ConfigureAwait(false);
+                    jobResult = await JobStepSearchService.SearchAsync(connStr, searchTerm, options.MaxResults, options.WholeWord, token).ConfigureAwait(false);
                     if (token.IsCancellationRequested) return;
                     results.AddRange(jobResult.Matches.Select(m => new SearchResultViewModel(m, connectionKey, connStr)));
                 }
@@ -473,6 +508,7 @@ public partial class SqlSearchControl : UserControl
             SearchObjectNames = SearchObjectNamesCheck.IsChecked == true,
             SearchColumnNames = SearchColumnNamesCheck.IsChecked == true,
             SearchDefinitions = SearchDefinitionsCheck.IsChecked == true,
+            WholeWord = MatchWholeWordCheck.IsChecked == true,
             MaxResults = MaxResultsSetting()
         };
     }
@@ -611,6 +647,7 @@ public partial class SqlSearchControl : UserControl
         PreviewHeader.SetResourceReference(ForegroundProperty, "SqlxHeading");
 
         _searchHighlighter.SearchTerm = SearchTextBox.Text?.Trim();
+        _searchHighlighter.WholeWord = MatchWholeWordCheck.IsChecked == true;
         PreviewEditor.Text = sb.ToString();
         TempTableEditor.Text = "";
     }
@@ -628,6 +665,7 @@ public partial class SqlSearchControl : UserControl
             PreviewHeader.SetResourceReference(ForegroundProperty, isError ? "SqlxError" : "SqlxHeading");
 
             _searchHighlighter.SearchTerm = isError ? null : SearchTextBox.Text?.Trim();
+            _searchHighlighter.WholeWord = MatchWholeWordCheck.IsChecked == true;
             PreviewEditor.Text = text;
         }));
     }

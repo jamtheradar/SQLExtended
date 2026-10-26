@@ -135,6 +135,7 @@
   <ItemGroup>
     <Compile Include="..\SQLExtended\Search\JobStepMatch.cs" Link="Search\JobStepMatch.cs" />
     <Compile Include="..\SQLExtended\Search\JobStepSearchService.cs" Link="Search\JobStepSearchService.cs" />
+    <Compile Include="..\SQLExtended\Cache\SearchTextMatcher.cs" Link="Cache\SearchTextMatcher.cs" />
   </ItemGroup>
 
   <!--

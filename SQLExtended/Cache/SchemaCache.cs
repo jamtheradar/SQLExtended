@@ -440,7 +440,7 @@ internal sealed class SchemaCache : ISchemaCache, IDisposable
         options ??= new SearchOptions();
         var results = new List<SearchResult>();
 
-        // In-memory search for object names (fast substring + case-insensitive)
+        // In-memory search for object names (case-insensitive substring, or whole word)
         var data = GetDatabaseData(connectionKey, database);
         if (data != null)
         {
@@ -457,7 +457,7 @@ internal sealed class SchemaCache : ISchemaCache, IDisposable
             {
                 foreach (var obj in data.Objects)
                 {
-                    if (obj.ObjectName.IndexOf(searchTerm, StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (SearchTextMatcher.Contains(obj.ObjectName, searchTerm, options.WholeWord))
                     {
                         if (typeFilters != null && !typeFilters.Contains(obj.ObjectType))
                             continue;
@@ -483,7 +483,7 @@ internal sealed class SchemaCache : ISchemaCache, IDisposable
 
                 foreach (var col in data.Columns)
                 {
-                    if (col.ColumnName.IndexOf(searchTerm, StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (SearchTextMatcher.Contains(col.ColumnName, searchTerm, options.WholeWord))
                     {
                         if (objectTypes == null)
                         {
@@ -522,6 +522,8 @@ internal sealed class SchemaCache : ISchemaCache, IDisposable
                     SearchColumnNames = false,
                     SearchDefinitions = true,
                     TypeFilter = options.TypeFilter,
+                    WholeWord = options.WholeWord,
+                    ExcludeNameMatchesFromDefinitions = options.SearchObjectNames,
                     MaxResults = options.MaxResults - results.Count
                 });
                 results.AddRange(storeResults);

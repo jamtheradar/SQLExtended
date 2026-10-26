@@ -133,6 +133,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <TextBox x:Name="SearchTextBox"
@@ -149,14 +150,19 @@
                      KeyDown="SearchTextBox_KeyDown"
                      TextChanged="SearchTextBox_TextChanged"/>
 
-            <Button Grid.Column="1"
+            <CheckBox x:Name="MatchWholeWordCheck" Grid.Column="1" Content="Match whole word" Style="{StaticResource DarkCheck}"
+                      FontSize="11" VerticalAlignment="Center" Margin="8,0,4,0"
+                      Checked="MatchWholeWord_Changed" Unchecked="MatchWholeWord_Changed"
+                      ToolTip="Only find the term as a whole name or word: person finds dbo.person and [person], not personal, person_id or @person. Applies to names, columns, definitions and Agent jobs."/>
+
+            <Button Grid.Column="2"
                     Content="Search"
                     Style="{StaticResource ToolButton}"
                     Click="Search_Click"
                     Margin="4,0,0,0"
                     Padding="10,4"/>
 
-            <Button Grid.Column="2"
+            <Button Grid.Column="3"
                     Content="Clear"
                     Style="{StaticResource ToolButton}"
                     Click="Clear_Click"

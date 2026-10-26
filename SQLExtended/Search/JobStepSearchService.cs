@@ -1,4 +1,5 @@
 using Microsoft.Data.SqlClient;
+using SQLExtended.Cache;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -64,7 +65,7 @@ internal static class JobStepSearchService
         return builder.ConnectionString;
     }
 
-    public static async Task<Result> SearchAsync(string connectionString, string searchTerm, int maxResults, CancellationToken ct)
+    public static async Task<Result> SearchAsync(string connectionString, string searchTerm, int maxResults, bool wholeWord, CancellationToken ct)
     {
         var result = new Result();
         if (string.IsNullOrWhiteSpace(searchTerm) || string.IsNullOrEmpty(connectionString))
@@ -79,7 +80,7 @@ internal static class JobStepSearchService
                 if (!await ProbeAsync(conn, result, ct).ConfigureAwait(false))
                     return result;
 
-                await ReadStepsAsync(conn, result, searchTerm, maxResults, ct).ConfigureAwait(false);
+                await ReadStepsAsync(conn, result, searchTerm, maxResults, wholeWord, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { throw; }
@@ -125,16 +126,19 @@ internal static class JobStepSearchService
         return true;
     }
 
-    private static async Task ReadStepsAsync(SqlConnection conn, Result result, string searchTerm, int maxResults, CancellationToken ct)
+    private static async Task ReadStepsAsync(SqlConnection conn, Result result, string searchTerm, int maxResults, bool wholeWord, CancellationToken ct)
     {
+        // Whole word has no LIKE form: LIKE narrows to the substring matches and Classify makes the word check.
+        // TOP then has to stop limiting, or substring-only rows would fill it ahead of the real hits — the cap
+        // is applied here instead, after the check. sysjobsteps is small enough that this costs nothing.
         using (var cmd = new SqlCommand(StepsSql, conn) { CommandTimeout = CommandTimeoutSeconds })
         {
             cmd.Parameters.Add("@pattern", System.Data.SqlDbType.NVarChar, 4000).Value = BuildLikePattern(searchTerm);
-            cmd.Parameters.Add("@max", System.Data.SqlDbType.Int).Value = Math.Max(1, maxResults);
+            cmd.Parameters.Add("@max", System.Data.SqlDbType.Int).Value = wholeWord ? int.MaxValue : Math.Max(1, maxResults);
 
             using (var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false))
             {
-                while (await reader.ReadAsync(ct).ConfigureAwait(false))
+                while (result.Matches.Count < Math.Max(1, maxResults) && await reader.ReadAsync(ct).ConfigureAwait(false))
                 {
                     var match = new JobStepMatch
                     {
@@ -148,8 +152,8 @@ internal static class JobStepSearchService
                         Command = reader["command"] as string
                     };
 
-                    Classify(match, searchTerm);
-                    result.Matches.Add(match);
+                    if (Classify(match, searchTerm, wholeWord))
+                        result.Matches.Add(match);
                 }
             }
         }
@@ -160,25 +164,28 @@ internal static class JobStepSearchService
     /// collation, which is not exactly <see cref="StringComparison.OrdinalIgnoreCase"/> (width, kana and a
     /// handful of accent-insensitive pairs can differ), so a row the client scan cannot place is kept and
     /// labelled generically rather than dropped — the server is the authority on what matched.
+    ///
+    /// <para>Except under whole word, where the server only matched substrings and this <i>is</i> the match:
+    /// a row with no whole-word hit in any field is rejected (returns false). The few rows CI and
+    /// OrdinalIgnoreCase disagree on go with it — whole word is a narrowing the user asked for.</para>
     /// </summary>
-    internal static void Classify(JobStepMatch match, string searchTerm)
+    internal static bool Classify(JobStepMatch match, string searchTerm, bool wholeWord = false)
     {
-        int inCommand = IndexOf(match.Command, searchTerm);
+        int inCommand = SearchTextMatcher.IndexOf(match.Command, searchTerm, 0, wholeWord);
         if (inCommand >= 0)
         {
             match.MatchedIn = "Command";
             match.Snippet = BuildSnippet(match.Command, inCommand, searchTerm.Length);
-            return;
+            return true;
         }
 
-        if (IndexOf(match.StepName, searchTerm) >= 0) { match.MatchedIn = "StepName"; return; }
-        if (IndexOf(match.JobName, searchTerm) >= 0) { match.MatchedIn = "JobName"; return; }
+        if (SearchTextMatcher.Contains(match.StepName, searchTerm, wholeWord)) { match.MatchedIn = "StepName"; return true; }
+        if (SearchTextMatcher.Contains(match.JobName, searchTerm, wholeWord)) { match.MatchedIn = "JobName"; return true; }
 
+        if (wholeWord) return false;
         match.MatchedIn = "JobStep";
+        return true;
     }
-
-    private static int IndexOf(string haystack, string needle) =>
-        string.IsNullOrEmpty(haystack) ? -1 : haystack.IndexOf(needle, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// One line of the command around the match. Job step commands are frequently a whole batch, so every run

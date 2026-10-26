@@ -662,8 +662,14 @@ internal sealed class SchemaCacheSqliteStore : IDisposable
     {
         var results = new List<SearchResult>();
         int maxResults = options?.MaxResults ?? 200;
-        string likePattern = $"%{searchTerm}%";
+        string likePattern = SearchTextMatcher.BuildSqliteLikePattern(searchTerm);
         var (typeClause, addTypeParams) = BuildTypeFilterClause(options?.TypeFilter);
+
+        // Whole word has no LIKE form, so LIKE narrows to the substring matches and the word check runs here.
+        // The SQL LIMIT then has to go (-1 is SQLite's "no limit"): applied before the check, substring-only
+        // rows would fill it and the whole-word ones behind them would never be read.
+        bool wholeWord = options?.WholeWord == true;
+        int SqlLimit(int remaining) => wholeWord ? -1 : remaining;
 
         // Search object names
         if (options?.SearchObjectNames != false)
@@ -671,16 +677,17 @@ internal sealed class SchemaCacheSqliteStore : IDisposable
             using var cmd = new SQLiteCommand(
                 $@"SELECT schema_name, object_name, object_type FROM cache_objects
                   WHERE connection_key = @ck AND database_name = @db
-                    AND object_name LIKE @pattern COLLATE NOCASE{typeClause}
+                    AND object_name LIKE @pattern ESCAPE '\' COLLATE NOCASE{typeClause}
                   LIMIT @limit", _conn);
             cmd.Parameters.AddWithValue("@ck", connectionKey);
             cmd.Parameters.AddWithValue("@db", database);
             cmd.Parameters.AddWithValue("@pattern", likePattern);
-            cmd.Parameters.AddWithValue("@limit", maxResults);
+            cmd.Parameters.AddWithValue("@limit", SqlLimit(maxResults));
             addTypeParams(cmd);
             using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            while (reader.Read() && results.Count < maxResults)
             {
+                if (wholeWord && !SearchTextMatcher.Contains(reader.GetString(1), searchTerm, true)) continue;
                 results.Add(new SearchResult
                 {
                     SchemaName = reader.GetString(0),
@@ -709,7 +716,7 @@ internal sealed class SchemaCacheSqliteStore : IDisposable
                       AND o.schema_name = c.schema_name
                       AND o.object_name = c.table_name
                     WHERE c.connection_key = @ck AND c.database_name = @db
-                      AND c.column_name LIKE @pattern COLLATE NOCASE
+                      AND c.column_name LIKE @pattern ESCAPE '\' COLLATE NOCASE
                     LIMIT @limit"
                 : $@"SELECT c.schema_name, c.table_name, c.column_name, o.object_type FROM cache_columns c
                     INNER JOIN cache_objects o ON o.connection_key = c.connection_key
@@ -717,19 +724,20 @@ internal sealed class SchemaCacheSqliteStore : IDisposable
                       AND o.schema_name = c.schema_name
                       AND o.object_name = c.table_name
                     WHERE c.connection_key = @ck AND c.database_name = @db
-                      AND c.column_name LIKE @pattern COLLATE NOCASE{colTypeClause}
+                      AND c.column_name LIKE @pattern ESCAPE '\' COLLATE NOCASE{colTypeClause}
                     LIMIT @limit";
 
             using var cmd = new SQLiteCommand(colSql, _conn);
             cmd.Parameters.AddWithValue("@ck", connectionKey);
             cmd.Parameters.AddWithValue("@db", database);
             cmd.Parameters.AddWithValue("@pattern", likePattern);
-            cmd.Parameters.AddWithValue("@limit", maxResults - results.Count);
+            cmd.Parameters.AddWithValue("@limit", SqlLimit(maxResults - results.Count));
             if (!string.IsNullOrEmpty(colTypeClause))
                 BuildTypeFilterClause(options.TypeFilter, "o.object_type").addParams(cmd);
             using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            while (reader.Read() && results.Count < maxResults)
             {
+                if (wholeWord && !SearchTextMatcher.Contains(reader.GetString(2), searchTerm, true)) continue;
                 results.Add(new SearchResult
                 {
                     SchemaName = reader.GetString(0),
@@ -742,23 +750,32 @@ internal sealed class SchemaCacheSqliteStore : IDisposable
             }
         }
 
-        // Search definitions
+        // Search definitions. When a name pass ran, an object whose name matches is left out, as that pass lists
+        // it; without one (Find References is definitions-only) it is the answer, and leaving it out lost a
+        // vPerson that uses Person. Under whole word both halves are word checks and run here, not in SQL: a
+        // substring NOT LIKE on the name would drop a vPersonAddress whose definition uses "person" as a word,
+        // though its name is no whole-word hit. The definition is only read back for that check — it can be large.
         if (options?.SearchDefinitions != false && results.Count < maxResults)
         {
+            bool excludeNameMatches = options?.ExcludeNameMatchesFromDefinitions == true;
+            string selectDefinition = wholeWord ? ", definition" : "";
+            string excludeName = wholeWord || !excludeNameMatches ? "" : @" AND object_name NOT LIKE @pattern ESCAPE '\' COLLATE NOCASE";
             using var cmd = new SQLiteCommand(
-                $@"SELECT schema_name, object_name, object_type FROM cache_objects
+                $@"SELECT schema_name, object_name, object_type{selectDefinition} FROM cache_objects
                   WHERE connection_key = @ck AND database_name = @db
-                    AND definition LIKE @pattern COLLATE NOCASE
-                    AND object_name NOT LIKE @pattern COLLATE NOCASE{typeClause}
+                    AND definition LIKE @pattern ESCAPE '\' COLLATE NOCASE{excludeName}{typeClause}
                   LIMIT @limit", _conn);
             cmd.Parameters.AddWithValue("@ck", connectionKey);
             cmd.Parameters.AddWithValue("@db", database);
             cmd.Parameters.AddWithValue("@pattern", likePattern);
-            cmd.Parameters.AddWithValue("@limit", maxResults - results.Count);
+            cmd.Parameters.AddWithValue("@limit", SqlLimit(maxResults - results.Count));
             addTypeParams(cmd);
             using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            while (reader.Read() && results.Count < maxResults)
             {
+                if (wholeWord && ((excludeNameMatches && SearchTextMatcher.Contains(reader.GetString(1), searchTerm, true))
+                                  || reader.IsDBNull(3) || !SearchTextMatcher.Contains(reader.GetString(3), searchTerm, true)))
+                    continue;
                 results.Add(new SearchResult
                 {
                     SchemaName = reader.GetString(0),
