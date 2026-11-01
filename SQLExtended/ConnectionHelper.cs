@@ -141,7 +141,7 @@ internal static class ConnectionHelper
             string server = builder.DataSource ?? "";
             bool hasToken = EntraTokenBroker.HasToken(server);
             string auth = hasToken
-                ? "SSMS's own Entra access token"
+                ? "SSMS's own Entra sign-in"
                 : builder.IntegratedSecurity
                     ? "integrated security"
                     : "SQL auth as " + (string.IsNullOrEmpty(builder.UserID) ? "(no user)" : builder.UserID);

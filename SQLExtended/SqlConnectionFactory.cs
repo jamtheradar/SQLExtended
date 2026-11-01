@@ -27,9 +27,12 @@ internal static class SqlConnectionFactory
             if (!WantsAccessToken(connectionString))
                 return connection;
 
-            string token = EntraTokenBroker.TryGetAccessToken(new SqlConnectionStringBuilder(connectionString).DataSource);
+            string dataSource = new SqlConnectionStringBuilder(connectionString).DataSource;
+            string token = EntraTokenBroker.TryGetAccessToken(dataSource);
             if (!string.IsNullOrEmpty(token))
                 connection.AccessToken = token;
+            else if (EntraTokenBroker.TryGetAccessTokenCallback(dataSource) is { } callback)
+                connection.AccessTokenCallback = callback;
         }
         catch (Exception ex)
         {

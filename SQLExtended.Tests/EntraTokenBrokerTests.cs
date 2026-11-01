@@ -52,5 +52,38 @@ public class EntraTokenBrokerTests
     {
         Assert.False(EntraTokenBroker.HasToken("never-harvested.database.windows.net"));
         Assert.Null(EntraTokenBroker.TryGetAccessToken("never-harvested.database.windows.net"));
+        Assert.Null(EntraTokenBroker.TryGetAccessTokenCallback("never-harvested.database.windows.net"));
+    }
+
+    [Fact]
+    public void AnMfaServerIsEntraButWaitsForTheCallbackToFetchItsToken()
+    {
+        // Issue #10: an MFA window carries no token, and Job Properties must still see it as Entra.
+        EntraTokenBroker.RememberInteractive("tcp:mi-one.public.abc.database.windows.net,3342", "");
+
+        Assert.True(EntraTokenBroker.HasToken("mi-one.public.abc.database.windows.net"));
+        Assert.Null(EntraTokenBroker.TryGetAccessToken("mi-one.public.abc.database.windows.net"));
+        Assert.NotNull(EntraTokenBroker.TryGetAccessTokenCallback("mi-one.public.abc.database.windows.net,3342"));
+    }
+
+    [Fact]
+    public void AnMfaServerKeepsOneCallbackSoItsConnectionsShareAPool()
+    {
+        EntraTokenBroker.RememberInteractive("mi-two.public.abc.database.windows.net", "someone@example.com");
+        var first = EntraTokenBroker.TryGetAccessTokenCallback("mi-two.public.abc.database.windows.net");
+
+        EntraTokenBroker.RememberInteractive("mi-two.public.abc.database.windows.net", "someone@example.com");
+
+        Assert.Same(first, EntraTokenBroker.TryGetAccessTokenCallback("mi-two.public.abc.database.windows.net"));
+    }
+
+    [Fact]
+    public void ForgettingAnMfaServerDropsItsCallback()
+    {
+        EntraTokenBroker.RememberInteractive("mi-three.public.abc.database.windows.net", "");
+        EntraTokenBroker.Forget("mi-three.public.abc.database.windows.net");
+
+        Assert.False(EntraTokenBroker.HasToken("mi-three.public.abc.database.windows.net"));
+        Assert.Null(EntraTokenBroker.TryGetAccessTokenCallback("mi-three.public.abc.database.windows.net"));
     }
 }

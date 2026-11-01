@@ -172,6 +172,7 @@
   <ItemGroup>
     <Compile Include="..\SQLExtended\Diagnostics\SQLExtendedLog.cs" Link="Diagnostics\SQLExtendedLog.cs" />
     <Compile Include="..\SQLExtended\EntraTokenBroker.cs" Link="EntraTokenBroker.cs" />
+    <Compile Include="..\SQLExtended\SsmsEntraProvider.cs" Link="SsmsEntraProvider.cs" />
     <Compile Include="..\SQLExtended\SqlConnectionFactory.cs" Link="SqlConnectionFactory.cs" />
   </ItemGroup>
 

@@ -16,8 +16,9 @@ namespace SQLExtended;
 /// <para><b>AuthenticationType is an <c>int</c>, not an enum</b> (verified against SSMS 22's
 /// <c>Microsoft.SqlServer.RegSvrEnum.dll</c>). Every copy tested <c>value.ToString().Contains("Sql")</c>, which is
 /// never true of "0" or "1", so the SQL-auth branch was dead code and everything fell through to integrated
-/// security. The numbers themselves are undocumented and have shifted between SSMS versions, so nothing here reads
-/// them: what the connection actually carries - a renewable token, a password - is what decides.</para>
+/// security. The numbers themselves are undocumented and have shifted between SSMS versions, so as far as possible
+/// nothing here reads them: what the connection actually carries - a renewable token, a password - is what decides.
+/// Entra MFA is the exception, because it carries neither.</para>
 ///
 /// <para><b>The password is often only in <c>InMemoryPassword</c>.</b> <c>Password</c> reads back empty for a SQL
 /// login the user did not ask SSMS to remember, and that empty string used to be taken as "use Windows auth".</para>
@@ -62,6 +63,17 @@ internal static class UIConnectionInfoReader
         if (renewableToken != null)
         {
             EntraTokenBroker.Remember(builder.DataSource, renewableToken);
+            return builder.ConnectionString;
+        }
+
+        // Except Microsoft Entra MFA, which SSMS 22 hands to SqlClient as ActiveDirectoryInteractive with no token on
+        // this object at all (issue #10) - it fell through to integrated security below and failed with an SSPI error.
+        // The token is borrowed from SSMS's own provider instead; see SsmsEntraProvider. The one place a number is
+        // read: 5 is MFA and 4 the older Universal with MFA, both mapped to ActiveDirectoryInteractive by
+        // SqlServerType.GetConnectionObject in SSMS 22's ConnectionDlg.dll.
+        if (GetValue(type, uiConnInfo, "AuthenticationType") is 4 or 5)
+        {
+            EntraTokenBroker.RememberInteractive(builder.DataSource, GetString(type, uiConnInfo, "UserName"));
             return builder.ConnectionString;
         }
 

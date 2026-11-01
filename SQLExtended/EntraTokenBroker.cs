@@ -1,7 +1,10 @@
+using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SQLExtended;
 
@@ -19,6 +22,11 @@ namespace SQLExtended;
 /// left credential-free and <see cref="SqlConnectionFactory"/> attaches the token to the
 /// <c>SqlConnection.AccessToken</c> property instead, keyed by server.</para>
 ///
+/// <para><b>A Microsoft Entra MFA window has no <c>RenewableToken</c> in SSMS 22</b> (issue #10). For those the
+/// server is remembered as <see cref="RememberInteractive">interactive</see>, and the token is borrowed from SSMS's
+/// own sign-in provider through <see cref="SsmsEntraProvider"/>, by an <c>AccessTokenCallback</c> that also caches
+/// what it gets here - so the provider is asked roughly once an hour, not once per connection.</para>
+///
 /// <para><b>Refreshing is deliberately biased to the harvest.</b> <see cref="Remember"/> runs on the UI thread
 /// while SSMS's own connection is in hand, which is where a token renewal may legitimately prompt; the connection
 /// opens happen on background threads, where a prompt would hang a poll timer with no window to show it against.
@@ -35,6 +43,13 @@ internal static class EntraTokenBroker
         public object RenewableToken;
         public string Token;
         public DateTimeOffset Expiry;
+
+        /// <summary>Signed in with Entra MFA: the token comes from SSMS's provider, through <see cref="Callback"/>.</summary>
+        public bool Interactive;
+        public string UserId;
+
+        /// <summary>One instance per server: SqlClient keys its pools on the callback, so a new one per connection would never reuse a pool.</summary>
+        public Func<SqlAuthenticationParameters, CancellationToken, Task<SqlAuthenticationToken>> Callback;
     }
 
     private static readonly ConcurrentDictionary<string, Entry> Servers = new ConcurrentDictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
@@ -89,6 +104,36 @@ internal static class EntraTokenBroker
     }
 
     /// <summary>
+    /// Records that a server was signed in to with Entra MFA, whose token SSMS 22 keeps in its own sign-in provider
+    /// rather than on the connection. Nothing is fetched here; the first connection opened asks for it.
+    /// </summary>
+    public static void RememberInteractive(string dataSource, string userId)
+    {
+        string key = ServerKey(dataSource);
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        var entry = Servers.GetOrAdd(key, _ => new Entry());
+        if (entry.Interactive && string.Equals(entry.UserId ?? "", userId ?? "", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        entry.Interactive = true;
+        entry.UserId = userId;
+        entry.Callback = async (parameters, cancellationToken) =>
+        {
+            var token = await SsmsEntraProvider.AcquireTokenAsync(parameters, entry.UserId, cancellationToken).ConfigureAwait(false);
+
+            bool first = string.IsNullOrEmpty(entry.Token);
+            entry.Token = token.AccessToken;
+            entry.Expiry = token.ExpiresOn;
+            if (first)
+                Diagnostics.SQLExtendedLog.Info("Connection", $"Reusing SSMS's Entra MFA sign-in for {key} (expires {entry.Expiry:u}).");
+
+            return token;
+        };
+    }
+
+    /// <summary>
     /// Drops the token for a server. Called when a harvest finds that server reconnected as a SQL login - a stale
     /// token would otherwise be attached to a connection that is asking to be someone else. Nothing forgets on a
     /// harvest that merely lacks a token: Object Explorer and the query window hand out different connection
@@ -101,11 +146,11 @@ internal static class EntraTokenBroker
             Servers.TryRemove(key, out _);
     }
 
-    /// <summary>True if a token has been harvested for this connection string's server.</summary>
+    /// <summary>True if a token has been harvested for this connection string's server, or it was signed in to with Entra MFA.</summary>
     public static bool HasToken(string dataSource)
     {
         string key = ServerKey(dataSource);
-        return !string.IsNullOrEmpty(key) && Servers.TryGetValue(key, out var entry) && !string.IsNullOrEmpty(entry.Token);
+        return !string.IsNullOrEmpty(key) && Servers.TryGetValue(key, out var entry) && (entry.Interactive || !string.IsNullOrEmpty(entry.Token));
     }
 
     /// <summary>
@@ -118,10 +163,25 @@ internal static class EntraTokenBroker
         if (string.IsNullOrEmpty(key) || !Servers.TryGetValue(key, out var entry))
             return null;
 
+        // A borrowed MFA token is only handed out while it has a margin left; after that the connection goes through
+        // the callback, which fetches a fresh one, rather than logging in with a token about to lapse.
+        if (entry.RenewableToken == null && entry.Interactive)
+            return !string.IsNullOrEmpty(entry.Token) && entry.Expiry > DateTimeOffset.UtcNow.Add(RefreshWindow) ? entry.Token : null;
+
         if (string.IsNullOrEmpty(entry.Token) || entry.Expiry <= DateTimeOffset.UtcNow)
             Refresh(key, entry);
 
         return string.IsNullOrEmpty(entry.Token) ? null : entry.Token;
+    }
+
+    /// <summary>
+    /// The callback that borrows SSMS's MFA sign-in for a server, or null when it was not signed in to that way. Used
+    /// when <see cref="TryGetAccessToken"/> has nothing current to give.
+    /// </summary>
+    public static Func<SqlAuthenticationParameters, CancellationToken, Task<SqlAuthenticationToken>> TryGetAccessTokenCallback(string dataSource)
+    {
+        string key = ServerKey(dataSource);
+        return !string.IsNullOrEmpty(key) && Servers.TryGetValue(key, out var entry) && entry.Interactive ? entry.Callback : null;
     }
 
     /// <summary>
