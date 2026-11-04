@@ -248,6 +248,15 @@
   </ItemGroup>
 
   <!--
+    SchemaExporter's mirror: what a nightly export may delete from the git history. Pure file I/O over the naming
+    rules above, so it is linked rather than referenced (the exporter project itself pulls in SMO).
+  -->
+  <ItemGroup>
+    <Compile Include="..\SchemaExporter\SchemaMirror.cs" Link="SchemaExporter\SchemaMirror.cs" />
+    <Compile Include="..\SchemaExporter\ChangeDetection.cs" Link="SchemaExporter\ChangeDetection.cs" />
+  </ItemGroup>
+
+  <!--
     The encrypted-module decryption pieces that can be checked without a server: the XOR arithmetic and
     dummy-definition builder, and the DAC connection-string rules. ModuleDecryptionService itself is left
     out — it is the part that must talk to an instance.

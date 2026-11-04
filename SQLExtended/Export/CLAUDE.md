@@ -33,6 +33,27 @@ runnability, decides every choice in it:
   would also catch a `.sqlproj`).
 - `db.PrefetchObjects` + `SetDefaultInitFields(type, true)` per scripted type: without them SMO lazy-loads
   per property and a few hundred objects becomes thousands of round trips.
+- **`Scripter.PrefetchObjects = false`**, because the database-level prefetch above has already done the work.
+  The scripter is handed one object per call, and with its own prefetch on (the default) it re-ran the prefetch
+  queries for that single object every time. On a remote server that cost 1–2 s per table, while procedures,
+  which have no child collections, went at over 100 a second. A 7,185-table database took 3 h 43 m. Each type's
+  progress line reports its time and query count (`ServerConnection.StatementExecuted`). A type whose query count
+  grows with its object count is going back to the server per object.
+- **`CollectGroups` enumerates modules *before* prefetching them, and tables *after*.** Enumerating loads the objects
+  with the default init fields (all of them), and the prefetch then fills in the scripting fields on those same
+  objects. Modules need that order: the procedure (and, on LocalDB, view) prefetch leaves out `IsEncrypted`, which
+  `ScriptCreate` reads first, so SMO re-initialised each one (2 queries a procedure on a real server, 2 a view on
+  LocalDB, 0 after the swap). Tables need the opposite: their default fields include row counts and space used, and
+  enumerating 7,185 tables first took 6.7 minutes, against 23 s when the prefetch creates them.
+- **View columns are bulk-loaded with every property (`LoadViewColumns`).** On a real server the view prefetch
+  loaded columns with too few properties, and scripting read one it had left out, which re-initialises that column
+  alone, looked up by name: 5,779 queries for 1,434 views, 8.4 minutes. `SetDefaultInitFields(typeof(Column), true)`
+  plus `db.InitChildCollection("View/Column", forScripting: false)` is one query. `forScripting: true` loads the same
+  short list as the prefetch, so it doesn't help. The column defaults are put back afterwards, so table columns load as
+  before. Reproduced on LocalDB by reading column properties after the prefetch: 3 queries per view, 0 after.
+- **When a type is slow, read the log, not the code.** A failed prefetch is logged, not swallowed. When a type's query
+  count is over its object count (and over 50), the progress log lists its three most repeated statements. That is
+  how the view columns were found, after one wrong guess.
 - Each type group and each object is collected/scripted in its own try/catch, and each database in a server
   export too — one type the edition or permission set disallows costs one folder and a warning, not the
   export. Cancellation is reported on the result rather than thrown, so the caller can still say how much of

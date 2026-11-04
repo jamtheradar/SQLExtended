@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Unattended nightly schema export into a git history. A console app, not part of the VSIX.
+
+    The exporter itself is LINKED from the extension, never copied: the point of this tool is that its tree is
+    the Schema Cache window's folder export, file for file and byte for byte, so a history built here can be
+    folder-compared against an export taken by hand in SSMS. A copy would drift the first time either changed.
+    .NET 10 although the extension is net48: SMO ships a net10.0 build of the same package version, so the linked
+    sources compile against the same scripter. Everything linked must therefore build on both frameworks.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>annotations</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>SQLExtended.SchemaExporter</RootNamespace>
+    <AssemblyName>SchemaExporter</AssemblyName>
+    <!-- Compiles the shell-only guard in ModuleDecryptionService out; there is no UI thread here. -->
+    <DefineConstants>$(DefineConstants);SCHEMA_EXPORTER</DefineConstants>
+    <IsPackable>false</IsPackable>
+	<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- Versions track SQLExtended/SQLExtended.csproj. Bump them together, or the two exports can script differently. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="181.37.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <!-- SqlClient's net8.0 build pulls in Pkcs 9.0.18, which has open advisories (NU1902/NU1903). Lift it to the patched 10.x line. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SQLExtended\Export\SchemaExportService.cs" Link="Linked\Export\SchemaExportService.cs" />
+    <Compile Include="..\SQLExtended\Export\ExportFileNaming.cs" Link="Linked\Export\ExportFileNaming.cs" />
+    <Compile Include="..\SQLExtended\Decryption\ModuleDecryptionService.cs" Link="Linked\Decryption\ModuleDecryptionService.cs" />
+    <Compile Include="..\SQLExtended\Decryption\EncryptedModuleCrypto.cs" Link="Linked\Decryption\EncryptedModuleCrypto.cs" />
+    <Compile Include="..\SQLExtended\Decryption\DacConnectionFactory.cs" Link="Linked\Decryption\DacConnectionFactory.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="SchemaExporter.sample.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="README.md" />
+    <None Include="CLAUDE.md" />
+  </ItemGroup>
+
+</Project>

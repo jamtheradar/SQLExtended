@@ -3,6 +3,7 @@ using Microsoft.SqlServer.Management.Smo;
 using SQLExtended.Decryption;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -64,7 +65,22 @@ internal static class SchemaExportService
         var objects = new List<SqlSmoObject>();
         var encrypted = new List<SqlSmoObject>();
 
-        foreach (Table t in db.Tables) if (!t.IsSystemObject) objects.Add(t);
+        // A table with an encrypted trigger makes SMO throw for the whole batch, so those tables are scripted on their
+        // own with triggers off; their plain triggers join the batch and the encrypted ones go with the other
+        // encrypted modules to the end of the file.
+        var encryptedTriggers = EncryptedTriggersByTable(db);
+        var tablesWithoutTriggers = new List<SqlSmoObject>();
+        var looseTriggers = new List<SqlSmoObject>();
+
+        foreach (Table t in db.Tables)
+        {
+            if (t.IsSystemObject) continue;
+            if (!encryptedTriggers.TryGetValue((t.Schema, t.Name), out var triggerNames)) { objects.Add(t); continue; }
+
+            tablesWithoutTriggers.Add(t);
+            foreach (Trigger tr in t.Triggers) (triggerNames.Contains(tr.Name) ? encrypted : looseTriggers).Add(tr);
+        }
+
         foreach (View v in db.Views) if (!v.IsSystemObject) (IsEncrypted(v) ? encrypted : objects).Add(v);
         foreach (StoredProcedure sp in db.StoredProcedures) if (!sp.IsSystemObject) (IsEncrypted(sp) ? encrypted : objects).Add(sp);
         foreach (UserDefinedFunction fn in db.UserDefinedFunctions) if (!fn.IsSystemObject) (IsEncrypted(fn) ? encrypted : objects).Add(fn);
@@ -75,9 +91,10 @@ internal static class SchemaExportService
         sb.AppendLine("GO");
         sb.AppendLine();
 
-        if (objects.Count > 0)
+        void AppendBatch(Scripter batchScripter, List<SqlSmoObject> batch)
         {
-            foreach (string statement in scripter.Script(objects.ToArray()))
+            if (batch.Count == 0) return;
+            foreach (string statement in batchScripter.Script(batch.ToArray()))
             {
                 sb.AppendLine(statement);
                 sb.AppendLine("GO");
@@ -85,11 +102,22 @@ internal static class SchemaExportService
             }
         }
 
+        AppendBatch(scripter, objects);
+
+        if (tablesWithoutTriggers.Count > 0)
+        {
+            var noTriggers = new Scripter(server) { Options = new ScriptingOptions(scripter.Options) { Triggers = false } };
+            AppendBatch(noTriggers, tablesWithoutTriggers);
+            AppendBatch(scripter, looseTriggers);
+        }
+
         AppendEncrypted(sb, connectionString, database, encrypted);
 
         File.WriteAllText(filePath, sb.ToString());
     }
 
+    // Not the folder export, and built on the schema viewer's SchemaQueryService — out of SchemaExporter's build.
+#if !SCHEMA_EXPORTER
     /// <summary>
     /// Scripts a single table/view (CREATE statement plus indexes and foreign keys, via
     /// <see cref="SchemaQueryService"/>) and writes it to <paramref name="filePath"/>. Throws on failure.
@@ -103,6 +131,7 @@ internal static class SchemaExportService
 
         File.WriteAllText(filePath, script);
     }
+#endif
 
     #region Folder export (one file per object)
 
@@ -155,7 +184,19 @@ internal static class SchemaExportService
         PrepareServer(server);
 
         var options = BuildScriptingOptions();
-        var scripter = new Scripter(server) { Options = options };
+
+        // PrefetchObjects off: CollectGroups has already prefetched every scripted type for the whole database
+        // (db.PrefetchObjects), and the scripter is handed one object per call. Left on, it re-ran its own prefetch
+        // for that single object on every call — columns, indexes, keys, triggers, extended properties, one query
+        // each — which measured at 1-2 s per table against a remote server, while procedures (no child collections)
+        // went at 100+ a second. A 7,000-table database took almost four hours. The script text is the same either
+        // way; anything not prefetched is still lazy-loaded on demand.
+        var scripter = new Scripter(server) { Options = options, PrefetchObjects = false };
+
+        // Round trips per type group, for the progress line: the only way to tell from a log whether a slow type
+        // is the server being slow or SMO going back to it per object.
+        var queries = new QueryTally();
+        server.ConnectionContext.StatementExecuted += (_, e) => queries.Add(e.SqlStatement);
 
         Directory.CreateDirectory(rootFolder);
 
@@ -176,6 +217,7 @@ internal static class SchemaExportService
                     if (db == null)
                     {
                         result.Warnings.Add($"{database}: not found on the server.");
+                        result.FailedDatabases.Add(database);
                         continue;
                     }
 
@@ -184,12 +226,13 @@ internal static class SchemaExportService
                         : rootFolder;
 
                     progress?.Invoke($"Exporting {database}…");
-                    ExportDatabaseCore(db, folder, scripter, options, result, progress, connectionString, ct);
+                    ExportDatabaseCore(db, folder, scripter, options, result, progress, connectionString, queries, ct);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
                     result.Warnings.Add($"{database}: {RootMessage(ex)}");
+                    result.FailedDatabases.Add(database);
                 }
             }
         }
@@ -203,15 +246,18 @@ internal static class SchemaExportService
 
     private static void ExportDatabaseCore(
         Database db, string folder, Scripter scripter, ScriptingOptions options,
-        SchemaFolderExportResult result, Action<string> progress, string connectionString, CancellationToken ct)
+        SchemaFolderExportResult result, Action<string> progress, string connectionString, QueryTally queries, CancellationToken ct)
     {
-        var groups = CollectGroups(db, options, result, ct);
+        var groups = CollectGroups(db, options, result, progress, ct);
         if (groups.Count == 0) return;
+
+        var encryptedTriggers = EncryptedTriggersByTable(db, result);
+        Scripter tableScripter = null;   // triggers off, for the tables in encryptedTriggers; made on first use
 
         // Resolved for the whole database up front: decryption opens a dedicated administrator connection,
         // of which the instance permits exactly one, so it is done once for every encrypted object here
         // rather than once per object as the loop reaches it.
-        var decrypted = ResolveEncrypted(connectionString, db, groups, result, ct);
+        var decrypted = ResolveEncrypted(connectionString, db, groups, encryptedTriggers, result, progress, ct);
 
         Directory.CreateDirectory(folder);
 
@@ -221,6 +267,9 @@ internal static class SchemaExportService
 
             string dir = Path.Combine(folder, group.Folder);
             Directory.CreateDirectory(dir);
+            progress?.Invoke($"Scripting {db.Name} — {group.Folder} ({group.Objects.Count:N0})…");
+            var groupClock = System.Diagnostics.Stopwatch.StartNew();
+            queries.Reset();
 
             var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -230,6 +279,7 @@ internal static class SchemaExportService
 
                 var (schema, name) = NameOf(obj);
                 string fileName = ExportFileNaming.UniqueFileName(used, schema, name);
+                string filePath = Path.Combine(dir, fileName);
 
                 try
                 {
@@ -246,10 +296,17 @@ internal static class SchemaExportService
                         {
                             result.Warnings.Add($"{db.Name}/{group.Folder}/{name}: defined WITH ENCRYPTION and could not be decrypted — no file was written.");
                             result.Failed++;
+                            result.NotDecryptedModules++;
+                            result.UnwrittenFiles.Add(filePath);
                             continue;
                         }
 
                         script = EncryptedScript(definition);
+                    }
+                    else if (obj is Table table && encryptedTriggers.TryGetValue((table.Schema, table.Name), out var triggerNames))
+                    {
+                        tableScripter ??= new Scripter(db.Parent) { Options = BuildScriptingOptions(triggers: false), PrefetchObjects = false };
+                        script = ScriptTableWithEncryptedTriggers(table, triggerNames, scripter, tableScripter, decrypted, result, $"{db.Name}/{group.Folder}/{name}");
                     }
                     else
                     {
@@ -260,6 +317,7 @@ internal static class SchemaExportService
                     {
                         result.Warnings.Add($"{db.Name}/{group.Folder}/{name}: SMO produced no script.");
                         result.Failed++;
+                        result.UnwrittenFiles.Add(filePath);
                         continue;
                     }
 
@@ -268,7 +326,7 @@ internal static class SchemaExportService
                     if (script.IndexOf(EncryptedModuleCrypto.SmoEncryptedMarker, StringComparison.OrdinalIgnoreCase) >= 0)
                         result.Warnings.Add($"{db.Name}/{group.Folder}/{name}: the script contains an encrypted object SMO could not transfer, so part of this file is a placeholder.");
 
-                    File.WriteAllText(Path.Combine(dir, fileName), script, ScriptEncoding);
+                    File.WriteAllText(filePath, script, ScriptEncoding);
                     result.FilesWritten++;
 
                     if (result.FilesWritten % 25 == 0)
@@ -278,9 +336,19 @@ internal static class SchemaExportService
                 catch (Exception ex)
                 {
                     result.Failed++;
+                    result.UnwrittenFiles.Add(filePath);
                     result.Warnings.Add($"{db.Name}/{group.Folder}/{name}: {RootMessage(ex)}");
                 }
             }
+
+            progress?.Invoke($"Scripted {db.Name} — {group.Folder}: {group.Objects.Count:N0} in {groupClock.Elapsed.TotalSeconds:N1}s, {queries.Count:N0} queries");
+
+            // More queries than objects means SMO went back to the server per object. Name the repeated queries, so the
+            // log says which property or child collection the prefetch missed, instead of leaving it to a guess.
+            // The floor keeps a small type's fixed setup queries (a table's first script reads server settings) out of it.
+            if (queries.Count > Math.Max(group.Objects.Count, 50))
+                foreach (var (shape, count) in queries.Top(3))
+                    progress?.Invoke($"  {count:N0}× {shape}");
 
             // An object type with nothing in it leaves no folder behind, so the two sides of a compare
             // don't differ by an empty directory.
@@ -307,13 +375,13 @@ internal static class SchemaExportService
     /// off — SMO then emits COLLATE only where a column departs from the database default, which is a
     /// real difference worth seeing rather than the noise scripting every collation would produce.
     /// </summary>
-    private static ScriptingOptions BuildScriptingOptions() => new()
+    private static ScriptingOptions BuildScriptingOptions(bool triggers = true) => new()
     {
         ScriptDrops = false,
         WithDependencies = false,
         Indexes = true,
         DriAll = true,
-        Triggers = true,
+        Triggers = triggers,
         ExtendedProperties = true,
         SchemaQualify = true,
         SchemaQualifyForeignKeysReferences = true,
@@ -365,7 +433,7 @@ internal static class SchemaExportService
     /// collected in its own try/catch: a type the edition or permission set doesn't allow costs one
     /// folder and a warning, not the export.
     /// </summary>
-    private static List<ExportGroup> CollectGroups(Database db, ScriptingOptions options, SchemaFolderExportResult result, CancellationToken ct)
+    private static List<ExportGroup> CollectGroups(Database db, ScriptingOptions options, SchemaFolderExportResult result, Action<string> progress, CancellationToken ct)
     {
         var groups = new List<ExportGroup>();
 
@@ -450,14 +518,30 @@ internal static class SchemaExportService
         void Add(string folder, Type prefetch, Func<List<SqlSmoObject>> select)
         {
             ct.ThrowIfCancellationRequested();
+            // The prefetch is one large read per type and the slowest silent stretch of a big database's export.
+            progress?.Invoke($"Reading {db.Name} — {folder}…");
             try
             {
-                if (prefetch != null)
+                // Modules are enumerated BEFORE the prefetch, tables after it. Enumerating loads each object with the
+                // default init fields (PrepareServer: all of them), and the prefetch then fills in the scripting fields on
+                // those same objects. Modules need that order: the procedure (and, on LocalDB, view) prefetch leaves out
+                // IsEncrypted, which the scripter reads first, so with the prefetch first it re-initialised every module
+                // one at a time. Tables need the opposite: their default fields include row counts and space used, and
+                // loading those for 7,185 tables took 6.7 minutes, against 23 seconds when the prefetch creates them.
+                bool enumerateFirst = prefetch != null && prefetch != typeof(Table);
+                List<SqlSmoObject> objects = enumerateFirst ? select() : null;
+
+                if (prefetch != null && (objects == null || objects.Count > 0))
                 {
-                    try { db.PrefetchObjects(prefetch, options); } catch { /* costs speed, not correctness */ }
+                    // Costs speed, not correctness, so it doesn't fail the folder. But say so: every object of the type
+                    // then goes back to the server on its own.
+                    try { db.PrefetchObjects(prefetch, options); }
+                    catch (Exception ex) { progress?.Invoke($"Prefetch of {db.Name} — {folder} failed, so each object will be read on its own: {RootMessage(ex)}"); }
                 }
 
-                var objects = select();
+                if (prefetch == typeof(View) && objects?.Count > 0) LoadViewColumns(db, folder, progress);
+
+                objects ??= select();
                 if (objects.Count == 0) return;
 
                 objects.Sort(CompareByName);
@@ -467,7 +551,77 @@ internal static class SchemaExportService
             catch (Exception ex)
             {
                 result.Warnings.Add($"{db.Name}: could not read {folder} — {RootMessage(ex)}");
+                result.UnreadFolders.Add((db.Name, folder));
             }
+        }
+    }
+
+    /// <summary>
+    /// Loads every view's columns, with every column property, in one query. The view prefetch loads the columns with
+    /// only a few properties on some servers, and scripting then reads one it left out, which re-initialises that column
+    /// alone, looked up by name: 5,779 queries for 1,434 views, 8.4 minutes, against one query here. The column default
+    /// init fields are widened only for this call and then put back, so table columns load exactly as before.
+    /// </summary>
+    private static void LoadViewColumns(Database db, string folder, Action<string> progress)
+    {
+        var server = db.Parent;
+        var previous = server.GetDefaultInitFields(typeof(Column));
+        try
+        {
+            server.SetDefaultInitFields(typeof(Column), allFields: true);
+            // forScripting: false loads the default init fields just widened; true loads SMO's scripting subset, the
+            // same short list the prefetch used.
+            db.InitChildCollection(new Microsoft.SqlServer.Management.Sdk.Sfc.Urn("View/Column"), forScripting: false);
+        }
+        catch (Exception ex)
+        {
+            progress?.Invoke($"Loading the columns of {db.Name} — {folder} failed, so each will be read on its own: {RootMessage(ex)}");
+        }
+        finally
+        {
+            try { server.SetDefaultInitFields(typeof(Column), previous); } catch { /* speed only */ }
+        }
+    }
+
+    /// <summary>
+    /// The statements SMO sends while one type is scripted: a count for the progress line, and the most repeated
+    /// statement shapes for when the count says SMO went back to the server per object.
+    /// </summary>
+    private sealed class QueryTally
+    {
+        private readonly object gate = new();
+        private readonly Dictionary<string, int> shapes = new(StringComparer.Ordinal);
+        private int count;
+
+        public int Count { get { lock (gate) return count; } }
+
+        public void Reset() { lock (gate) { count = 0; shapes.Clear(); } }
+
+        public void Add(string sql)
+        {
+            string shape = Shape(sql);
+            lock (gate)
+            {
+                count++;
+                if (shape == null) return;
+                if (shapes.TryGetValue(shape, out int n)) shapes[shape] = n + 1;
+                else if (shapes.Count < 200) shapes[shape] = 1;
+            }
+        }
+
+        public List<(string Shape, int Count)> Top(int n)
+        {
+            lock (gate) return shapes.OrderByDescending(p => p.Value).Take(n).Select(p => (p.Key, p.Value)).ToList();
+        }
+
+        // The start (column list) says which property set was missing and the tail (FROM … WHERE) which catalog it came
+        // from; the middle is mostly SMO's CASE expressions. "use [db]" is half of every pair and says nothing.
+        private static string Shape(string sql)
+        {
+            if (string.IsNullOrWhiteSpace(sql)) return null;
+            string flat = string.Join(" ", sql.Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
+            if (flat.StartsWith("use ", StringComparison.OrdinalIgnoreCase)) return null;
+            return flat.Length <= 320 ? flat : flat.Substring(0, 140) + " … " + flat.Substring(flat.Length - 180);
         }
     }
 
@@ -530,6 +684,8 @@ internal static class SchemaExportService
             return obj switch
             {
                 StoredProcedure p => new EncryptedModule { Schema = p.Schema, Name = p.Name, ObjectType = "P" },
+                // A DML trigger lives in its table's schema, and ALTER TRIGGER has to name that table.
+                Trigger { Parent: Table t } tr => new EncryptedModule { Schema = t.Schema, Name = tr.Name, ObjectType = "TR", ParentSchema = t.Schema, ParentName = t.Name },
                 View v => new EncryptedModule { Schema = v.Schema, Name = v.Name, ObjectType = "V" },
                 UserDefinedFunction f => new EncryptedModule
                 {
@@ -554,13 +710,24 @@ internal static class SchemaExportService
     /// opened — in each of those cases the objects are skipped with a warning rather than written badly.
     /// </summary>
     private static Dictionary<string, string> ResolveEncrypted(
-        string connectionString, Database db, List<ExportGroup> groups, SchemaFolderExportResult result, CancellationToken ct)
+        string connectionString, Database db, List<ExportGroup> groups, Dictionary<(string, string), HashSet<string>> encryptedTriggers,
+        SchemaFolderExportResult result, Action<string> progress, CancellationToken ct)
     {
         var modules = new List<EncryptedModule>();
         foreach (var group in groups)
         {
             foreach (var obj in group.Objects)
             {
+                if (obj is Table table && encryptedTriggers.TryGetValue((table.Schema, table.Name), out var names))
+                {
+                    foreach (Trigger trigger in EncryptedTriggersOf(table, names))
+                    {
+                        var triggerModule = ToModule(trigger);
+                        if (triggerModule != null) modules.Add(triggerModule);
+                    }
+                    continue;
+                }
+
                 if (!IsEncrypted(obj)) continue;
                 var module = ToModule(obj);
                 if (module != null) modules.Add(module);
@@ -576,6 +743,7 @@ internal static class SchemaExportService
             return null;
         }
 
+        progress?.Invoke($"Decrypting {modules.Count} encrypted module{(modules.Count == 1 ? "" : "s")} in {db.Name}…");
         var outcome = ModuleDecryptionService.Decrypt(connectionString, db.Name, modules, progress: null, ct: ct);
 
         if (!string.IsNullOrEmpty(outcome.DacError))
@@ -585,6 +753,98 @@ internal static class SchemaExportService
             result.Warnings.Add($"{db.Name}: {warning}");
 
         return outcome.Definitions;
+    }
+
+    /// <summary>
+    /// The encrypted DML triggers in a database, by (table schema, table name). SMO cannot script a table that has
+    /// one: reading the trigger's TextHeader throws ("The text is encrypted"), and the exception takes the whole
+    /// table with it. In the folder export that table's file was never written; in the single-file export the batch
+    /// failed and took every table with it. Found with one catalog query rather than by walking each table's
+    /// Triggers collection, which would be a round trip per table on exactly the large databases where that hurts.
+    /// Empty on failure, which leaves the old behaviour: the table fails with a warning.
+    /// </summary>
+    private static Dictionary<(string, string), HashSet<string>> EncryptedTriggersByTable(Database db, SchemaFolderExportResult result = null)
+    {
+        const string sql = @"
+SELECT s.name, t.name, tr.name
+FROM sys.triggers AS tr
+JOIN sys.tables AS t ON t.object_id = tr.parent_id
+JOIN sys.schemas AS s ON s.schema_id = t.schema_id
+WHERE OBJECTPROPERTY(tr.object_id, 'IsEncrypted') = 1;";
+
+        // Ordinal: a case-sensitive collation can hold both [dbo].[Foo] and [dbo].[foo], and SMO's names are exact.
+        var map = new Dictionary<(string, string), HashSet<string>>();
+        try
+        {
+            using DataSet ds = db.ExecuteWithResults(sql);
+            foreach (DataRow row in ds.Tables[0].Rows)
+            {
+                var key = ((string)row[0], (string)row[1]);
+                if (!map.TryGetValue(key, out var names)) map[key] = names = new HashSet<string>(StringComparer.Ordinal);
+                names.Add((string)row[2]);
+            }
+        }
+        catch (Exception ex)
+        {
+            result?.Warnings.Add($"{db.Name}: could not list encrypted triggers, so tables that have one will fail — {RootMessage(ex)}");
+        }
+        return map;
+    }
+
+    private static List<Trigger> EncryptedTriggersOf(Table table, HashSet<string> names)
+    {
+        var list = new List<Trigger>();
+        foreach (Trigger trigger in table.Triggers)
+            if (names.Contains(trigger.Name)) list.Add(trigger);
+        return list;
+    }
+
+    /// <summary>
+    /// A table that has an encrypted trigger, scripted as SMO would have scripted it whole: the table with triggers
+    /// off, then each trigger in the collection's own order. Plain triggers are scripted by SMO; encrypted ones are
+    /// the decrypted text plus SMO's ENABLE/DISABLE statement. One that could not be decrypted becomes a comment
+    /// naming it: the table is the object this file stands for, and losing all of it over one trigger (what
+    /// happened before) is a far bigger gap than the trigger. The comment is fixed text, so it does not churn.
+    /// </summary>
+    private static string ScriptTableWithEncryptedTriggers(
+        Table table, HashSet<string> encryptedNames, Scripter scripter, Scripter tableScripter,
+        Dictionary<string, string> decrypted, SchemaFolderExportResult result, string where)
+    {
+        var sb = new StringBuilder(ScriptOne(tableScripter, table));
+
+        foreach (Trigger trigger in table.Triggers)
+        {
+            if (!encryptedNames.Contains(trigger.Name))
+            {
+                sb.Append(ScriptOne(scripter, trigger));
+                continue;
+            }
+
+            if (decrypted != null && decrypted.TryGetValue($"{table.Schema}.{trigger.Name}", out string definition))
+            {
+                sb.Append(EncryptedScript(definition));
+                sb.AppendLine(TriggerStateStatement(table, trigger));
+                sb.AppendLine("GO");
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine($"-- Trigger {EncryptedModuleCrypto.Quote(table.Schema, trigger.Name)} is defined WITH ENCRYPTION and could not be decrypted, so it is not in this script.");
+                sb.AppendLine();
+                result?.Warnings.Add($"{where}: trigger {trigger.Name} is defined WITH ENCRYPTION and could not be decrypted — the table was scripted without it.");
+                if (result != null) result.NotDecryptedTriggers++;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>The statement SMO writes after every trigger it scripts. Disabled is a real difference worth keeping.</summary>
+    private static string TriggerStateStatement(Table table, Trigger trigger)
+    {
+        bool enabled = true;
+        try { enabled = trigger.IsEnabled; } catch { /* assume enabled, the engine's default */ }
+        return $"ALTER TABLE {EncryptedModuleCrypto.Quote(table.Schema, table.Name)} {(enabled ? "ENABLE" : "DISABLE")} TRIGGER [{trigger.Name.Replace("]", "]]")}]";
     }
 
     /// <summary>
@@ -771,4 +1031,24 @@ internal sealed class SchemaFolderExportResult
     public bool Cancelled { get; set; }
 
     public List<string> Warnings { get; } = new();
+
+    // What did not make it, in a form a caller can act on rather than only read. The window just shows the
+    // warnings; SchemaExporter mirrors the tree into a git history, where a database, a type folder or a file
+    // missing from this run would otherwise be committed as dropped. Each of these says "keep what was there".
+
+    /// <summary>Databases that were not exported at all (not found, or failed outright). Raw names, not folder names.</summary>
+    public List<string> FailedDatabases { get; } = new();
+
+    /// <summary>Type folders whose objects could not be enumerated, as (raw database name, type folder).</summary>
+    public List<(string Database, string Folder)> UnreadFolders { get; } = new();
+
+    /// <summary>Full paths of files an object should have been written to and was not.</summary>
+    public List<string> UnwrittenFiles { get; } = new();
+
+    // Encrypted objects whose text was not recovered: modules (no file, and also in Failed and UnwrittenFiles) and DML
+    // triggers (a comment in their table's file). SchemaExporter's change detection needs to tell these apart from other
+    // failures: with decryption off they are the same every night, so they don't make an export "unclean".
+
+    public int NotDecryptedModules { get; set; }
+    public int NotDecryptedTriggers { get; set; }
 }

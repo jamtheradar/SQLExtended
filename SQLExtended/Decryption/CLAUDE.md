@@ -101,4 +101,15 @@ make two servers' differing procedures **compare equal**. When the text cannot b
 writes **no file** and records a warning; the single-file export names the object in a comment. Decrypted
 text has its leading `ALTER` rewritten to `CREATE` (`NormalizeToCreate`) because what comes back is whatever
 was last submitted, and SMO normalises this for everything it scripts itself. A script that still contains
-SMO's marker (an encrypted trigger inside its table's file, say) is warned about after the fact.
+SMO's marker is warned about after the fact.
+
+**Encrypted DML triggers don't produce the marker; they throw.** SMO reads the trigger's `TextHeader` while
+scripting its table, gets "The text is encrypted", and the exception takes the whole table with it. The folder
+export lost that table's file (it hit 3 tables in every SYTELINE database), and the single-file export lost the
+whole batch. `EncryptedTriggersByTable` therefore finds them up front with **one** catalog query
+(`OBJECTPROPERTY(…, 'IsEncrypted')`), not by walking each table's `Triggers`, which would be a round trip per
+table. Those tables are scripted with `Triggers = false`. Their triggers are then appended: plain ones by SMO,
+encrypted ones decrypted (as `"TR"` modules carrying `ParentSchema`/`ParentName`) and followed by SMO's
+`ENABLE`/`DISABLE TRIGGER` line. One that could not be decrypted becomes a fixed comment plus a warning. That
+departs from "no file at all" for modules on purpose: the file stands for the table, and losing all of it over
+one trigger is the larger gap.

@@ -160,6 +160,8 @@ internal static class ModuleDecryptionService
         // and on the UI thread that is a frozen SSMS with no window to explain itself. Callers do this work
         // on a background thread; this is the backstop that makes a caller which forgets merely wrong
         // rather than fatal.
+        // SchemaExporter links this file into a console app, which has no shell and no UI thread to protect.
+#if !SCHEMA_EXPORTER
         if (Microsoft.VisualStudio.Shell.ThreadHelper.CheckAccess())
         {
             result.DacError = "Encrypted module text is not decrypted on the UI thread, because opening an administrator "
@@ -167,6 +169,7 @@ internal static class ModuleDecryptionService
                             + "the background (the schema cache, or the schema viewer).";
             return result;
         }
+#endif
 
         if (UnavailableServers.TryGetValue(server, out string knownFailure))
         {

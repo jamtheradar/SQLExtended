@@ -1,0 +1,53 @@
+// Copy to SchemaExporter.json beside SchemaExporter.exe (or pass its path as the first argument).
+{
+  // A clone of the DevOps / GitHub repository. Each server gets a folder in it.
+  "outputPath": "D:\\SchemaHistory",
+
+  // Default %ProgramData%\SQLExtended\SchemaExporter\logs. Keep it out of outputPath.
+  "logDirectory": null,
+  "logRetentionDays": 30,
+
+  // Recover WITH ENCRYPTION modules. Needs sysadmin, the DAC (remote admin connections on for a remote server),
+  // and briefly ALTERs each encrypted module inside a rolled-back transaction. Off by default.
+  "decryptEncryptedModules": false,
+
+  // Skip a database whose schema fingerprint (one catalog query) is unchanged since its last clean export, but export
+  // every database in full at least every fullScanEveryDays days (0 = never). --full overrides it for one run.
+  "skipUnchangedDatabases": true,
+  "fullScanEveryDays": 7,
+  // Default %ProgramData%\SQLExtended\SchemaExporter\state. Keep it out of outputPath.
+  "stateDirectory": null,
+
+  "git": {
+    "enabled": true,
+    // Path to git.exe; null runs "git" from PATH. Portable Git: point it at <folder>\cmd\git.exe.
+    "executable": null,
+    "remote": "origin",
+    "branch": "main",
+    "push": true,
+    "authorName": "Schema Exporter",
+    "authorEmail": "schema-exporter@example.com",
+    // Name of an environment variable holding a PAT. Leave null to use Git Credential Manager instead.
+    "tokenEnvironmentVariable": "SCHEMA_EXPORTER_PAT"
+  },
+
+  "servers": [
+    {
+      "name": "PROD-SQL01",
+      // Any SqlClient connection string; %VARIABLES% are expanded. Integrated Security with the task's service
+      // account is simplest. Entra: Authentication=Active Directory Managed Identity / Service Principal / Default.
+      "connectionString": "Data Source=PROD-SQL01;Integrated Security=True;Encrypt=True;TrustServerCertificate=True",
+      // Empty = every user database, and a database dropped from the server has its folder removed.
+      // A list = only those, and nothing is ever removed for a missing one.
+      "databases": [],
+      "excludeDatabases": [ "SSISDB", "ReportServer", "ReportServerTempDB" ]
+    },
+    {
+      "name": "PROD-SQL02\\SALES",
+      "folder": "PROD-SQL02_SALES",
+      "connectionString": "Data Source=PROD-SQL02\\SALES;User ID=schema_reader;Password=%SALES_SQL_PASSWORD%;Encrypt=True;TrustServerCertificate=True",
+      "databases": [ "Sales", "SalesStaging" ],
+      "decryptEncryptedModules": true
+    }
+  ]
+}
