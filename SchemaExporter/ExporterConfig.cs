@@ -37,6 +37,9 @@ internal sealed class ExporterConfig
 
     public List<ServerConfig> Servers { get; set; } = new();
 
+    /// <summary>SSRS / Power BI Report Server catalogs to export, each into its own folder beside the servers'.</summary>
+    public List<ReportServerConfig> ReportServers { get; set; } = new();
+
     public static ExporterConfig Load(string path)
     {
         if (!File.Exists(path)) throw new ConfigException($"Config file not found: {path}");
@@ -73,7 +76,8 @@ internal sealed class ExporterConfig
             if (Git.Enabled && !File.Exists(Git.Executable)) throw new ConfigException($"git.executable not found: {Git.Executable}");
         }
         Servers ??= new List<ServerConfig>();
-        if (Servers.Count == 0) throw new ConfigException("servers is empty — nothing to export.");
+        ReportServers ??= new List<ReportServerConfig>();
+        if (Servers.Count == 0 && ReportServers.Count == 0) throw new ConfigException("servers and reportServers are both empty — nothing to export.");
 
         foreach (var server in Servers)
         {
@@ -89,8 +93,31 @@ internal sealed class ExporterConfig
             server.ExcludeDatabases ??= new List<string>();
         }
 
-        // Two servers sharing a folder would each see the other's databases as dropped and delete them, every night.
-        var clash = Servers.GroupBy(s => s.Folder, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+        foreach (var rs in ReportServers)
+        {
+            if (string.IsNullOrWhiteSpace(rs.ConnectionString))
+                throw new ConfigException($"Report server '{rs.Name}' has no connectionString.");
+            if (string.IsNullOrWhiteSpace(rs.Name))
+                rs.Name = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(rs.ConnectionString).DataSource;
+            if (string.IsNullOrWhiteSpace(rs.Name))
+                throw new ConfigException("A report server has neither a name nor a Data Source in its connection string.");
+            if (string.IsNullOrWhiteSpace(rs.Database)) rs.Database = "ReportServer";
+
+            rs.Folder = Export.ExportFileNaming.SanitizeFileName(string.IsNullOrWhiteSpace(rs.Folder) ? rs.Name + "_SSRS" : rs.Folder);
+            rs.ExcludePaths ??= new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(rs.ReportServerUrl))
+            {
+                rs.ReportServerUrl = Environment.ExpandEnvironmentVariables(rs.ReportServerUrl.Trim());
+                if (!Uri.TryCreate(rs.ReportServerUrl, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                    throw new ConfigException($"Report server '{rs.Name}': reportServerUrl '{rs.ReportServerUrl}' isn't an http(s) URL. It is the web service URL, e.g. http://server/ReportServer.");
+            }
+        }
+
+        // Two servers sharing a folder would each see the other's databases as dropped and delete them, every night;
+        // a report server owns its folder outright and would delete a schema export sharing it.
+        var clash = Servers.Select(s => (s.Folder, s.Name)).Concat(ReportServers.Select(r => (r.Folder, r.Name)))
+            .GroupBy(s => s.Folder, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         if (clash != null) throw new ConfigException($"Servers {string.Join(", ", clash.Select(s => $"'{s.Name}'"))} would share the folder '{clash.Key}'. Give each a distinct folder.");
     }
 }
@@ -144,6 +171,31 @@ internal sealed class ServerConfig
 
     /// <summary>Overrides the top-level setting for this server.</summary>
     public bool? DecryptEncryptedModules { get; set; }
+}
+
+internal sealed class ReportServerConfig
+{
+    /// <summary>Display name. Defaults to the connection string's Data Source.</summary>
+    public string Name { get; set; }
+
+    /// <summary>A connection to the SQL Server holding the report server's catalog database. %VARIABLES% are expanded.</summary>
+    public string ConnectionString { get; set; }
+
+    /// <summary>The catalog database. Default ReportServer; a named SSRS instance's is often ReportServer$NAME.</summary>
+    public string Database { get; set; }
+
+    /// <summary>Folder under outputPath. Defaults to &lt;name&gt;_SSRS. The folder is owned outright: anything in it the catalog doesn't produce is deleted.</summary>
+    public string Folder { get; set; }
+
+    /// <summary>
+    /// The report server's web service URL, e.g. http://PROD-SSRS01/ReportServer. Optional: when set, shared data
+    /// sources are exported with their connection string, which only the report server can decrypt. Called with the
+    /// task account's Windows credentials, which need permission to read data source contents (Content Manager).
+    /// </summary>
+    public string ReportServerUrl { get; set; }
+
+    /// <summary>Catalog folders to leave out, with everything under them, e.g. "/Users Folders" (My Reports).</summary>
+    public List<string> ExcludePaths { get; set; } = new();
 }
 
 internal sealed class ConfigException(string message) : Exception(message);

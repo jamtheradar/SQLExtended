@@ -99,6 +99,13 @@ unchanged database was skipped in 0.1 s.
   wrapper sets up the PATH its HTTPS and credential helpers need, and `bin\` or `mingw64\bin\git.exe` don't. A git
   that can't be started throws `Win32Exception`, which `Run` turns into a `GitException`, so it is a logged error
   (exit 1) and not an unhandled crash.
+- **Every slow git step reports progress.** The first real run's `git add` (tens of thousands of new scripts, each
+  scanned by antivirus) went many minutes with no output and was killed as a hang. Killing it left a stale
+  `.git/index.lock`, and the second server's folder was never committed. So `add` runs `--verbose` and its per-file
+  lines are counted into a progress line every 5 s, and `push` runs `--progress` (it reports nothing to a pipe
+  otherwise), thinned to one line per phase or every 5 s. Every step given an `activity` also prints "still running"
+  every 30 s. `Run` reads both streams with the async line reader, which splits on the bare `\r` git redraws with.
+  Lines `onLine` consumes stay out of the output that callers parse and errors quote.
 - `pull --ff-only` only. This tool is meant to be the repository's only writer, so it never merges or rebases
   unattended.
 - `.gitattributes` gets `*.sql -text`. Without it, `core.autocrlf` on the service account would rewrite the CRLF
@@ -110,3 +117,30 @@ unchanged database was skipped in 0.1 s.
 - Connections use plain `new SqlConnection` / SMO `ServerConnection`. The root rule about
   `SqlConnectionFactory.Create` is about borrowing SSMS's Entra token, and there is no SSMS here. For Entra, use
   the connection string's `Authentication=` keyword.
+
+## SSRS report servers
+
+`ReportServerExporter` exports `reportServers` entries from the catalog database (`dbo.Catalog`, one query), not the
+web service. It needs only a SQL login, works on any SSRS version, and the `Content` bytes are exactly what the
+portal's Download returns. It shares the config, log and `GitRepository` (`CommitReportServer`) with the schema export,
+but none of the staging or fingerprint machinery, because none of it applies here:
+
+- **The whole result is read into memory before anything is written**, so a failure throws with the folder
+  untouched. There's no partial result to guard, so `ReportMirror` owns the folder outright: anything in it that the
+  catalog didn't produce is deleted, except the folder's own `.gitattributes` (`* -text`; RDL keeps whatever line
+  endings its author's tool saved, and resources are binary). That is why a report server's folder must not
+  share a folder with a schema server, which `Validate` checks across both lists.
+- **No skip-unchanged.** One query over a catalog is cheap. Unchanged files aren't rewritten, so git sees no change.
+- **Shared data sources (Type 5) are written from `dbo.DataSource`, not `Content`**: extension, credential mode,
+  prompt and flags. The connection string is encrypted with the report server's key, so it is only included when
+  `reportServerUrl` is set. Then `GetDataSourceContents` on `ReportService2010.asmx` (SOAP, which goes back to 2008 R2,
+  unlike the REST API) returns it decrypted, called with the task account's Windows credentials. A failed call
+  keeps the previous `.rds` byte for byte. Writing the no-connection-string version instead would commit the
+  string as removed, and the next good night would add it back. `RedactPassword` masks `Password`/`Pwd` keys,
+  because the history is pushed to a shared repository.
+- Left out: folders (1), linked reports (4, no content of their own) and Power BI reports (13, a `.pbix` in
+  `CatalogItemExtendedContent` that doesn't diff).
+- `ReportMirror` (with `FilePathFor`, the type-to-extension map) is pure and linked into the net48 tests
+  (`ReportMirrorTests`).
+- Not yet verified against a live report server: the column types and Type codes come from the documented catalog
+  schema, and the mirror and naming are unit-tested.

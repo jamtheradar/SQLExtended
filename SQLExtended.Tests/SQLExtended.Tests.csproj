@@ -254,6 +254,7 @@
   <ItemGroup>
     <Compile Include="..\SchemaExporter\SchemaMirror.cs" Link="SchemaExporter\SchemaMirror.cs" />
     <Compile Include="..\SchemaExporter\ChangeDetection.cs" Link="SchemaExporter\ChangeDetection.cs" />
+    <Compile Include="..\SchemaExporter\ReportMirror.cs" Link="SchemaExporter\ReportMirror.cs" />
   </ItemGroup>
 
   <!--

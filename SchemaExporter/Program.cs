@@ -6,7 +6,7 @@ using System.Threading;
 namespace SQLExtended.SchemaExporter;
 
 /// <summary>
-/// SchemaExporter [config.json] [--server NAME] [--full] [--no-git] [--no-push] [--verbose]
+/// SchemaExporter [config.json] [--server NAME] [--full] [--no-git] [--no-push] [--push-only] [--verbose]
 ///
 /// Exit codes, for Task Scheduler's "last run result": 0 every server exported (warnings allowed), 1 at least one
 /// server or the git step failed, 2 bad arguments or config, 3 cancelled.
@@ -18,7 +18,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         string configPath = null, onlyServer = null;
-        bool noGit = false, noPush = false, verbose = false, full = false;
+        bool noGit = false, noPush = false, verbose = false, full = false, pushOnly = false;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -28,6 +28,7 @@ internal static class Program
                 case "--no-git": noGit = true; break;
                 case "--no-push": noPush = true; break;
                 case "--full": full = true; break;
+                case "--push-only": pushOnly = true; break;
                 case "--verbose": case "-v": verbose = true; break;
                 case "--help": case "-h": case "/?": PrintUsage(); return Ok;
                 default:
@@ -37,6 +38,8 @@ internal static class Program
             }
         }
 
+        if (pushOnly && (noGit || noPush || full)) { Console.Error.WriteLine("--push-only can't be combined with --no-git, --no-push or --full."); return BadConfig; }
+
         configPath ??= Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SchemaExporter.json");
 
         ExporterConfig config;
@@ -44,15 +47,19 @@ internal static class Program
         catch (ConfigException ex) { Console.Error.WriteLine(ex.Message); return BadConfig; }
 
         var servers = config.Servers.Where(s => onlyServer == null || string.Equals(s.Name, onlyServer, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (servers.Count == 0) { Console.Error.WriteLine($"No server named '{onlyServer}' in {configPath}."); return BadConfig; }
+        var reportServers = config.ReportServers.Where(s => onlyServer == null || string.Equals(s.Name, onlyServer, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (servers.Count + reportServers.Count == 0) { Console.Error.WriteLine($"No server named '{onlyServer}' in {configPath}."); return BadConfig; }
 
         if (noPush) config.Git.Push = false;
+        if (pushOnly && !config.Git.Enabled) { Console.Error.WriteLine("--push-only needs git.enabled in the config."); return BadConfig; }
+        if (pushOnly && !config.Git.Push) { Console.Error.WriteLine("--push-only needs git.push in the config."); return BadConfig; }
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
         using var log = new RunLog(config.LogDirectory, config.LogRetentionDays, verbose);
-        log.Info($"SchemaExporter — {servers.Count} server{(servers.Count == 1 ? "" : "s")} into {config.OutputPath}");
+        log.Info($"SchemaExporter — {servers.Count} server{(servers.Count == 1 ? "" : "s")}" +
+            (reportServers.Count > 0 ? $", {reportServers.Count} report server{(reportServers.Count == 1 ? "" : "s")}" : "") + $" into {config.OutputPath}");
 
         int exit = Ok;
         GitRepository git = null;
@@ -65,6 +72,19 @@ internal static class Program
             {
                 git = new GitRepository(config.OutputPath, config.Git, log);
                 git.Prepare();
+            }
+
+            if (pushOnly)
+            {
+                // No export: commit whatever an earlier run left on disk uncommitted (one killed during its git step),
+                // then push. Each folder still gets its own commit, so the history reads the same as a normal night's.
+                DateTime now = DateTime.Now;
+                foreach (var server in servers)
+                    if (!git.CommitServer(server, now)) log.Info($"{server.Name}: nothing uncommitted.");
+                foreach (var server in reportServers)
+                    if (!git.CommitReportServer(server, now)) log.Info($"{server.Name}: nothing uncommitted.");
+                servers.Clear();
+                reportServers.Clear();
             }
 
             foreach (var server in servers)
@@ -89,6 +109,29 @@ internal static class Program
                 // Committed per server, so one server's history reads independently of the others'.
                 if (git != null && !git.CommitServer(server, started))
                     log.Info($"{server.Name}: no schema changes.");
+            }
+
+            foreach (var server in reportServers)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                log.Info($"{server.Name}: exporting reports…");
+                DateTime started = DateTime.Now;
+
+                try
+                {
+                    ReportServerExporter.Export(server, config, log, cts.Token);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    // Nothing is written until the whole catalog has been read, so its folder is untouched.
+                    log.Error($"{server.Name}: report export failed, previous files kept — {Innermost(ex)}");
+                    exit = Failed;
+                    continue;
+                }
+
+                if (git != null && !git.CommitReportServer(server, started))
+                    log.Info($"{server.Name}: no report changes.");
             }
 
             git?.Push();
@@ -117,13 +160,15 @@ internal static class Program
     private static void PrintUsage() => Console.WriteLine(@"SchemaExporter [config.json] [options]
 
 Exports every configured server's schema, one file per object, in the same layout as the
-SQLExtended Schema Cache window's folder export, then commits the changes to git.
+SQLExtended Schema Cache window's folder export, and every configured report server's
+reports, data sources and datasets, then commits the changes to git.
 
   config.json      Defaults to SchemaExporter.json beside the exe. See SchemaExporter.sample.json.
-  --server NAME    Export only this server.
+  --server NAME    Export only this server or report server.
   --full           Export every database, even those whose schema fingerprint is unchanged.
   --no-git         Write the tree only; no commit or push.
   --no-push        Commit locally but don't push.
+  --push-only      Don't export. Commit anything an earlier run left uncommitted, then push.
   --verbose, -v    Show per-database progress.
 
 Exit codes: 0 ok, 1 a server or git failed, 2 bad arguments or config, 3 cancelled.");

@@ -1,7 +1,8 @@
 # SchemaExporter
 
 A console tool that runs nightly. It exports the schema of every SQL Server you list, writing one `.sql` file
-per object, and commits whatever changed to a git repository in Azure DevOps or GitHub. The result is a lazy
+per object, and commits whatever changed to a git repository in Azure DevOps or GitHub. It can also export
+SSRS report servers (reports, shared data sources and datasets, resources) into the same repository. The result is a lazy
 change history: when an object changed, you can see the day it changed and the diff.
 
 The layout matches the **Schema Cache window's Export** in SQLExtended exactly, so you can compare the history
@@ -18,6 +19,11 @@ against an export taken by hand in SSMS:
       Functions/  Table Types/  User-Defined Types/  Sequences/  Synonyms/  Schemas/  Database Triggers/
   PROD-SQL02_SALES/
     ...
+  PROD-SSRS01_SSRS/              one per entry in reportServers
+    .gitattributes               * -text
+    Finance/Monthly Sales.rdl
+    Data Sources/Warehouse.rds
+    Shared Datasets/Customers.rsd
 ```
 
 ## Setup
@@ -42,6 +48,17 @@ against an export taken by hand in SSMS:
    before you turn it on.
 6. **Try it** without git first: `SchemaExporter.exe --no-git -v`. Then run it with commits but no push:
    `SchemaExporter.exe --no-push`.
+
+### If a run is killed during its git step
+
+The first run commits tens of thousands of files, and staging them can take many minutes (the console shows a
+running count). If a run is killed anyway, its export is still on disk, just not committed or pushed. To finish it
+without exporting again:
+
+1. Make sure no `git.exe` is still running, then delete `.git\index.lock` in the repository if it's there. The tool
+   refuses to start while that file exists.
+2. Run `SchemaExporter.exe --push-only`. It commits whatever each configured folder has uncommitted, one commit per
+   server as usual, then pushes. `--server NAME` limits it to one server.
 
 ### Portable Git
 
@@ -118,3 +135,36 @@ It errs towards exporting. A database is always exported in full when:
 **If you re-clone or reset the repository**, run once with `--full`. Changes that were exported but never
 committed (for example, the push failed and the clone was then thrown away) are otherwise only picked up at the
 next full scan, or the next change to that database.
+
+## SSRS report servers
+
+Add a `reportServers` section to the config (see the sample). For each entry, the tool reads the report server's
+**catalog database** (`ReportServer` by default) over an ordinary SQL connection, then writes one file per item
+under its catalog path and commits it as `<name>: 2 added, 1 changed, 0 removed`, the same as a schema server.
+SSRS 2008 and later work, and so does Power BI Report Server. The web service isn't used, so no SSRS role is
+needed, only `SELECT` on `dbo.Catalog` and `dbo.DataSource` (or `db_datareader` on the catalog database).
+
+| Catalog item | File |
+|---|---|
+| Report | `.rdl`, exactly as uploaded (what the portal's Download gives) |
+| Shared dataset | `.rsd` |
+| Shared data source | `.rds`: extension and credential mode only. See below. |
+| Resource, Excel workbook | its own name, for example `logo.png` |
+| Report part, model, KPI, mobile report | `.rsc`, `.smdl`, `.kpi`, `.rsmobile` |
+| Folder, linked report, Power BI report | not exported |
+
+- **Shared data source connection strings need `reportServerUrl`.** The catalog holds them encrypted with the
+  report server's own key. Set `reportServerUrl` to the web service URL (`http://<server>/ReportServer`, not the
+  `/Reports` portal) and the tool asks the report server for each one (`ReportService2010.asmx`,
+  `GetDataSourceContents`), using the task account's Windows credentials. That account needs the **Content
+  Manager** role. Without the URL, the `.rds` records the data extension and how credentials are supplied only.
+  Connection strings of data sources embedded in a report are in the `.rdl` either way.
+- **Passwords aren't exported.** Stored credentials are never returned by the report server. A `Password=` or
+  `Pwd=` typed into a connection string itself is written as `********`.
+- **If the web service can't be reached**, each data source keeps its previous file and the run logs a warning,
+  so a night with the web service down doesn't commit every connection string as removed.
+- **The whole catalog is read before anything is written.** If the read fails (server down, no permission), the
+  folder stays as it was and the error is logged (exit code 1).
+- **The folder belongs to the tool.** A report deleted from the server is deleted from the folder, and so is
+  anything else you put there. A path added to `excludePaths` is removed from the folder on the next run.
+- `--server NAME` matches report servers by name too.

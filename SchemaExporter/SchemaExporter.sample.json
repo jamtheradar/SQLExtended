@@ -49,5 +49,25 @@
       "databases": [ "Sales", "SalesStaging" ],
       "decryptEncryptedModules": true
     }
+  ],
+
+  // SSRS / Power BI Report Server catalogs. Read from the catalog database over SQL (no web service), into
+  // <outputPath>\<folder>, one commit per report server. The login needs SELECT on dbo.Catalog and dbo.DataSource.
+  // The folder is owned outright: anything in it that isn't in the catalog is deleted. Leave out the whole section if unused.
+  "reportServers": [
+    {
+      "name": "PROD-SSRS01",
+      "connectionString": "Data Source=PROD-SQL01;Integrated Security=True;Encrypt=True;TrustServerCertificate=True",
+      // Default ReportServer. A named SSRS instance's is often ReportServer$<instance>.
+      "database": "ReportServer",
+      // Default <name>_SSRS. Must not clash with a server's folder.
+      "folder": null,
+      // Optional web service URL (not the /Reports portal). With it, shared data sources are exported with their
+      // connection string, which only the report server can decrypt; the task account needs Content Manager.
+      // Without it, the .rds files record the data extension and credential mode only.
+      "reportServerUrl": "http://PROD-SSRS01/ReportServer",
+      // Catalog folders to leave out, with everything under them. "/Users Folders" is everyone's My Reports.
+      "excludePaths": [ "/Users Folders" ]
+    }
   ]
 }
