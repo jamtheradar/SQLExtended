@@ -91,12 +91,13 @@ internal sealed class SqlCompletionItemManager : IAsyncCompletionItemManager
             .Select(x => new CompletionItemWithHighlight(x.Item))
             .ToImmutableArray();
 
-        // Hard-select only when the user has actually typed something to filter against.
-        // With an empty applicable span, soft-select so commit chars (space/punctuation)
-        // don't accidentally accept the highlighted item.
-        var hint = string.IsNullOrWhiteSpace(typedText)
-            ? UpdateSelectionHint.SoftSelected
-            : UpdateSelectionHint.Selected;
+        // Hard-select only when the user has typed the start of the best item's name. With nothing typed, or when
+        // the best item merely contains the typed text (FROM inside DATEFROMPARTS, issue #11), soft-select so
+        // finishing the word with Space does not accept it.
+        var best = scored[bestIdx].Item;
+        var hint = CompletionCommitRules.IsWordStartMatch(typedText, best.DisplayText, best.FilterText)
+            ? UpdateSelectionHint.Selected
+            : UpdateSelectionHint.SoftSelected;
 
         return Task.FromResult(new FilteredCompletionModel(
             filtered, bestIdx, data.SelectedFilters,

@@ -71,6 +71,7 @@
     <Compile Include="..\SQLExtended\IntelliSense\SqlAlterCommands.cs" Link="IntelliSense\SqlAlterCommands.cs" />
     <Compile Include="..\SQLExtended\IntelliSense\SqlQueryHints.cs" Link="IntelliSense\SqlQueryHints.cs" />
     <Compile Include="..\SQLExtended\IntelliSense\SqlQuotePairing.cs" Link="IntelliSense\SqlQuotePairing.cs" />
+    <Compile Include="..\SQLExtended\IntelliSense\CompletionCommitRules.cs" Link="IntelliSense\CompletionCommitRules.cs" />
     <Compile Include="..\SQLExtended\Snippets\SnippetManager.cs" Link="Snippets\SnippetManager.cs" />
     <Compile Include="..\SQLExtended\Snippets\SnippetPlaceholderResolver.cs" Link="Snippets\SnippetPlaceholderResolver.cs" />
     <Compile Include="..\SQLExtended\Snippets\SnippetXmlBuilder.cs" Link="Snippets\SnippetXmlBuilder.cs" />

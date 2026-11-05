@@ -85,17 +85,13 @@ internal sealed class SqlCompletionCommitManager : IAsyncCompletionCommitManager
                     if (selectedItem.Properties.TryGetProperty(IsSnippetKey, out bool isSnippet) && isSnippet)
                         return false;
 
-                    // Multi-word keywords (e.g. "CREATE TABLE", "INNER JOIN") must not be
-                    // committed by Space when the user has only typed the first word —
-                    // they may want to continue typing their own variant (e.g. "CREATE OR
-                    // ALTER PROCEDURE"). Tab/Enter still commits.
-                    string display = selectedItem.DisplayText ?? string.Empty;
-                    if (display.IndexOf(' ') >= 0)
-                    {
-                        string typed = session.ApplicableToSpan.GetText(location.Snapshot) ?? string.Empty;
-                        if (typed.IndexOf(' ') < 0)
-                            return false;
-                    }
+                    // Multi-word items, a word that only occurs inside the item's name, and a complete
+                    // reserved word are never replaced by Space (issue #11). Tab/Enter still commit.
+                    // Checked here as well as by soft selection in the item manager, so it holds even
+                    // if the editor commits a soft-selected item.
+                    string typed = session.ApplicableToSpan.GetText(location.Snapshot) ?? string.Empty;
+                    if (!CompletionCommitRules.SpaceMayCommit(typed, selectedItem.DisplayText, selectedItem.FilterText))
+                        return false;
                 }
             }
             catch { }

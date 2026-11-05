@@ -57,6 +57,25 @@ and assert one select element carrying **no alias** — comparing strings cannot
 name plus an alias, which is the entire bug — and check the quoted forms in the four positions a bare reserved
 word was shown to fail in.
 
+## IntelliSense: what Space may commit (issue #11)
+
+Space ends every word, so whatever is hard-selected when a word is finished replaces it. `DELETE FROM` + Space
+became `DELETE DATEFROMPARTS`: the list after DELETE held no plain FROM, the substring match was the best item,
+and it was hard-selected. The earlier fixes added the missing keyword to one context at a time (ON after a JOIN,
+FROM after SELECT), and the next context always had a gap. `CompletionCommitRules` closes the class:
+
+- **Only a word-start match is hard-selected** (`IsWordStartMatch`, used by `SqlCompletionItemManager`): the
+  typed text starts the display text, the name after the last dot, or one of the space-separated filter-text
+  forms (that is where `[Ongoing Qty]` and `'DISABLE_…` live). A substring or camel-hump best match is listed
+  but soft-selected.
+- **Space never commits** (`SpaceMayCommit`, in `ShouldCommitCompletion`) with nothing typed, a multi-word item
+  on its first word, a non-word-start match, or **a different item over a complete reserved word** — `IS` must
+  not become `ISNULL`, nor `IN` become `INT`. It is checked in the commit manager as well as by soft selection,
+  so it holds whatever the editor does with a soft-selected item on Space.
+
+`CompletionCommitRulesTests` pins these, including a sweep of every built-in function against the common
+reserved words. Tab and Enter are not restricted.
+
 ## IntelliSense: the system catalog
 
 `IntelliSense/` completes from `SchemaCache`, and that cache loads **`is_ms_shipped = 0` only** — so every
