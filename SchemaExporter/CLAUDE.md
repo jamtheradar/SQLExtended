@@ -16,7 +16,8 @@ What the linked files need from the shell is handled in two ways:
 - **`SCHEMA_EXPORTER` is defined** and compiles out the code that can't build here: the
   `ThreadHelper.CheckAccess()` guard in `ModuleDecryptionService` (there is no UI thread), and
   `SchemaExportService.ExportObject` (it depends on the schema viewer's `SchemaQueryService`).
-- **`DecryptionSettings.cs` is a stand-in `SQLExtended.Settings.SQLExtendedSettings`.** The decryption service
+- **`DecryptionSettings.cs` is a stand-in `SQLExtended.Settings.SQLExtendedSettings`** (SchemaCompare links it too,
+  for its live-database sources, along with the same exporter files and the same `SCHEMA_EXPORTER` define). The decryption service
   only reads `Current.DecryptEncryptedModules`. The real settings file is in the *user's* %APPDATA%, which is the
   wrong place for a service account, so `ServerExporter` sets this value per server from the config.
 

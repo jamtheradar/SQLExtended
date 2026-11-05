@@ -66,6 +66,7 @@ FormatCommand.ExecuteFormat()
 | `SQLExtended/` | Main VSIX extension (net48) |
 | `SQLExtended.Tests/` | xUnit tests (links formatter source files directly) |
 | `SchemaExporter/` | Console app (net10.0): nightly Schema Cache-format export of listed servers, committed to git |
+| `SchemaCompare/` | WPF app (net48): thin standalone shell round the compare in `SQLExtended/SchemaCompare/` (which also opens in SSMS from the SQLExtended menu); links that code rather than copying it |
 | `SoluitionDocs/` | Non-building documentation project |
 
 ## Subsystem notes
@@ -101,6 +102,7 @@ load automatically when a file in that folder is opened, but not while merely pl
 | Execution safety — confirm UPDATE/DELETE without WHERE (`Query.Execute` hook) | `SQLExtended/Safety/CLAUDE.md` |
 | Object Explorer context menu | `SQLExtended/ObjectExplorer/CLAUDE.md` |
 | SchemaExporter — the console app that links the folder export, its staging mirror and git | `SchemaExporter/CLAUDE.md` |
+| SchemaCompare — the two hosts (SSMS tool window, standalone shell) and `ICompareHost`, matching objects across exports and projects, live databases as sources, the two normalisers, the ignore options, change scripts | `SQLExtended/SchemaCompare/CLAUDE.md` (the shell: `SchemaCompare/CLAUDE.md`) |
 
 ## Releasing
 

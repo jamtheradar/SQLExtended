@@ -34,7 +34,7 @@ namespace SQLExtended;
 // The 3 is the command table's version: bump it whenever the .vsct changes. The shell re-merges an extension's commands
 // and key bindings only when this changes (or on /setup), so a new command is otherwise missing from Tools > Options >
 // Keyboard and its shortcut does nothing, however many times the DLL is replaced.
-[ProvideMenuResource("Menus.ctmenu", 3)]
+[ProvideMenuResource("Menus.ctmenu", 4)]
 [ProvideToolWindow(typeof(SqlSearchToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 400, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
 [ProvideToolWindow(typeof(SqlHistoryToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 400, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
 [ProvideToolWindow(typeof(ScriptLibraryToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 500, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
@@ -53,6 +53,8 @@ namespace SQLExtended;
 [ProvideToolWindow(typeof(Monitoring.Performance.PerfMonitorToolWindow), MultiInstances = true, Transient = true, Style = VsDockStyle.Tabbed, DockedWidth = 1200, DockedHeight = 520, Orientation = ToolWindowOrientation.Bottom)]
 [ProvideToolWindow(typeof(Monitoring.Jobs.JobsToolWindow), MultiInstances = true, Transient = true, Style = VsDockStyle.Tabbed, DockedWidth = 1200, DockedHeight = 520, Orientation = ToolWindowOrientation.Bottom)]
 [ProvideToolWindow(typeof(Monitoring.Replication.ReplMonitorToolWindow), MultiInstances = true, Transient = true, Style = VsDockStyle.Tabbed, DockedWidth = 1200, DockedHeight = 520, Orientation = ToolWindowOrientation.Bottom)]
+// Schema Compare is wide (two editors side by side), so it opens in the document well like a query window.
+[ProvideToolWindow(typeof(SchemaCompare.Ssms.SchemaCompareToolWindow), Style = VsDockStyle.MDI)]
 public sealed class SsmsSchemaViewerPackage : AsyncPackage
 {
     public const string PackageGuidString = "f1e2d3c4-a5b6-7890-abcd-ef1234567890";
@@ -173,6 +175,8 @@ public sealed class SsmsSchemaViewerPackage : AsyncPackage
 
         try { await Monitoring.Replication.ReplMonitorCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "ReplMonitorCommand init failed", ex); }
+        try { await SchemaCompare.Ssms.SchemaCompareCommand.InitializeAsync(this); }
+        catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "SchemaCompareCommand init failed", ex); }
 
         try { await EnvTabs.EnvTabsCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "EnvTabsCommand init failed", ex); }

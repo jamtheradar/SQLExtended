@@ -1,0 +1,90 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The standalone shell round Schema Compare, for use without SSMS (e.g. on the box that runs SchemaExporter).
+    The compare itself - engine, view, diff, change script window, theme templates - lives in the extension
+    (SQLExtended\SchemaCompare\) and is LINKED here, so there is one copy of it. This project only holds what differs
+    outside SSMS: the App and its window, its own theme switch (AppTheme, reading the theme.ini the extension leaves),
+    and saved server sign-ins with a connect dialog (ShellCompareHost). net48, like the extension it links.
+    SQLExtended\SchemaCompare\Ssms\ is the extension's side of the same seam and is not linked.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>annotations</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>SQLExtended.SchemaCompare</RootNamespace>
+    <AssemblyName>SchemaCompare</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    <!-- Compiles the shell-only code in the linked exporter out, as SchemaExporter does: no UI thread, no schema viewer. -->
+    <DefineConstants>$(DefineConstants);SCHEMA_EXPORTER</DefineConstants>
+  </PropertyGroup>
+
+  <!-- ScriptDom, SMO, SqlClient, AvalonEdit and Newtonsoft track SQLExtended/SQLExtended.csproj, so the parser accepts what
+       the extension's does and a live database is scripted exactly as the Schema Cache window's export scripts it. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="180.140.0" />
+    <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="181.37.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <!-- SqlClient 7 moved Entra (Authentication=ActiveDirectory…) into this package; without it an Entra sign-in throws. -->
+    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.1" />
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- DPAPI (ProtectedData), for remembered passwords. -->
+    <Reference Include="System.Security" />
+  </ItemGroup>
+
+  <!-- The compare, from the extension. Links keep the folder shape, so the XAML's relative Source="Theme.xaml" resolves. -->
+  <ItemGroup>
+    <Compile Include="..\SQLExtended\SchemaCompare\Engine\*.cs" Link="SchemaCompare\Engine\%(Filename)%(Extension)" />
+    <Compile Include="..\SQLExtended\SchemaCompare\UI\*.cs" Exclude="..\SQLExtended\SchemaCompare\UI\*.xaml.cs" Link="SchemaCompare\UI\%(Filename)%(Extension)" />
+    <Page Include="..\SQLExtended\SchemaCompare\UI\*.xaml" Link="SchemaCompare\UI\%(Filename)%(Extension)" />
+    <Compile Include="..\SQLExtended\SchemaCompare\UI\*.xaml.cs" Link="SchemaCompare\UI\%(Filename)%(Extension)">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <!--
+    A live database is a side by way of the extension's own folder export, LINKED as SchemaExporter links it: the
+    database is scripted into a cache folder and that folder is read like any export, so "compare against the server"
+    and "compare against an export of the server" can't disagree. DecryptionSettings is SchemaExporter's stand-in for
+    the extension's settings; decryption stays off here (it ALTERs the module on the server).
+  -->
+  <ItemGroup>
+    <Compile Include="..\SQLExtended\Export\SchemaExportService.cs" Link="Linked\Export\SchemaExportService.cs" />
+    <Compile Include="..\SQLExtended\Export\ExportFileNaming.cs" Link="Linked\Export\ExportFileNaming.cs" />
+    <Compile Include="..\SQLExtended\Decryption\ModuleDecryptionService.cs" Link="Linked\Decryption\ModuleDecryptionService.cs" />
+    <Compile Include="..\SQLExtended\Decryption\EncryptedModuleCrypto.cs" Link="Linked\Decryption\EncryptedModuleCrypto.cs" />
+    <Compile Include="..\SQLExtended\Decryption\DacConnectionFactory.cs" Link="Linked\Decryption\DacConnectionFactory.cs" />
+    <Compile Include="..\SchemaExporter\DecryptionSettings.cs" Link="Linked\Decryption\DecryptionSettings.cs" />
+  </ItemGroup>
+
+  <!-- One definition of the T-SQL colours, under the extension's resource name (UI\SqlHighlighting.cs looks it up by that). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\SQLExtended\Search\TsqlDarkHighlighting.xshd" Link="Linked\TsqlDarkHighlighting.xshd" LogicalName="SQLExtended.Search.TsqlDarkHighlighting.xshd" />
+  </ItemGroup>
+
+  <!--
+    The extension's palette and the file it leaves for us, linked so the colours can't drift: SSMS writes theme.ini
+    (ThemeManager → ThemeSnapshot) and UI\AppTheme.cs reads it. Both are pure data and I/O.
+  -->
+  <ItemGroup>
+    <Compile Include="..\SQLExtended\Theme\ThemePalette.cs" Link="Linked\Theme\ThemePalette.cs" />
+    <Compile Include="..\SQLExtended\Theme\ThemeSnapshot.cs" Link="Linked\Theme\ThemeSnapshot.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" />
+    <None Include="CLAUDE.md" />
+  </ItemGroup>
+
+</Project>

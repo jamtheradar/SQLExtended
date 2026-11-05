@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="SQLExtended.Tests/SQLExtended.Tests.csproj" />
   <Project Path="SQLExtended/SQLExtended.csproj" />
+  <Project Path="SchemaCompare/SchemaCompare.csproj" />
   <Project Path="SchemaExporter/SchemaExporter.csproj" />
   <!-- _SolutionDocs is a container for documentation, not code: it exists so the .md files and CLAUDE.md
        show up in Solution Explorer. Excluded from the build in every solution configuration, which is the

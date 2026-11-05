@@ -1,0 +1,16 @@
+<Application x:Class="SQLExtended.SchemaCompare.Shell.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Startup="OnStartup"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <!-- Colours are installed in front of this at runtime by UI/AppTheme.cs (the extension's palette, dark or light).
+             The templates are the extension's, linked; here, in the shell's own app, they can be application-wide, which
+             the ConnectWindow relies on. Inside SSMS they are scoped to the view and the script window. -->
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="SchemaCompare/UI/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

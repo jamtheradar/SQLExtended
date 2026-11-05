@@ -88,6 +88,18 @@ internal static class ThemePalette
         new("SqlxBanner",            "#3A2D00", "#FFF4CE"),
         new("SqlxBannerBorder",      "#7A6000", "#E0C050"),
         new("SqlxBadRow",            "#3A2426", "#FDE7E9"),
+
+        // ---- Schema Compare's diff (painted under syntax colours, so tuned to keep the changed words readable) ----
+        new("SqlxDiffChangedLine",   "#3A3418", "#FFF4C2"),
+        new("SqlxDiffChangedWords",  "#6E5C12", "#FFD25E"),
+        new("SqlxDiffLeftLine",      "#4A2427", "#FFDCDC"),
+        new("SqlxDiffRightLine",     "#1E3D27", "#D8F3DA"),
+        new("SqlxDiffFiller",        "#262628", "#ECEDEF"),
+        new("SqlxDiffCurrent",       "#3794FF", "#2563EB"),   // outline round the current difference
+        new("SqlxDiffMarkChanged",   "#C9A227", "#E0B12E"),   // overview bar marks
+        new("SqlxDiffMarkLeft",      "#E06C75", "#F08A8A"),
+        new("SqlxDiffMarkRight",     "#4EC9B0", "#5DBB6A"),
+        new("SqlxDiffViewport",      "#A0A0A8", "#7A8290"),
     ];
 
     private static readonly Dictionary<string, Entry> ByKey = Index();

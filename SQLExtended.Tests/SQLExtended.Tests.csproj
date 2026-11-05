@@ -32,6 +32,7 @@
   <!-- The WPF palette is pure data; ThemePaletteTests checks it against every key the XAML asks for. -->
   <ItemGroup>
     <Compile Include="..\SQLExtended\Theme\ThemePalette.cs" Link="Theme\ThemePalette.cs" />
+    <Compile Include="..\SQLExtended\Theme\ThemeSnapshot.cs" Link="Theme\ThemeSnapshot.cs" />
   </ItemGroup>
 
   <!-- The UPDATE/DELETE-without-WHERE check; the DTE hook beside it is not linked. -->
@@ -256,6 +257,14 @@
     <Compile Include="..\SchemaExporter\SchemaMirror.cs" Link="SchemaExporter\SchemaMirror.cs" />
     <Compile Include="..\SchemaExporter\ChangeDetection.cs" Link="SchemaExporter\ChangeDetection.cs" />
     <Compile Include="..\SchemaExporter\ReportMirror.cs" Link="SchemaExporter\ReportMirror.cs" />
+  </ItemGroup>
+
+  <!--
+    SchemaCompare's engine: reading scripts into objects, normalising them, and the line diff. Pure ScriptDom and file
+    I/O, so the whole folder is linked. It lives in the extension (SQLExtended\SchemaCompare\Engine).
+  -->
+  <ItemGroup>
+    <Compile Include="..\SQLExtended\SchemaCompare\Engine\*.cs" Link="SchemaCompare\Engine\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!--

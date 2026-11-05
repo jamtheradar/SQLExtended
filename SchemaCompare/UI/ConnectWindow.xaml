@@ -1,0 +1,64 @@
+<Window x:Class="SQLExtended.SchemaCompare.Shell.ConnectWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Choose a database — Schema Compare" Width="480" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource SqlxSurface}" Foreground="{DynamicResource SqlxText}"
+        FontFamily="Segoe UI" FontSize="12.5" UseLayoutRounding="True">
+
+    <Window.Resources>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SqlxTextSubtle}" />
+            <Setter Property="Margin" Value="2,12,0,4" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource SqlxSurfaceRaised}" BorderBrush="{DynamicResource SqlxDivider}" BorderThickness="0,1,0,0" Padding="14,10">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="OkButton" Style="{StaticResource AccentButton}" Click="OnOk" IsDefault="True" Content="Use this database" />
+                <Button Click="OnCancel" IsCancel="True" Content="Cancel" Margin="8,0,0,0" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Margin="18,6,18,16">
+            <TextBlock Text="SERVER" Style="{StaticResource Label}" />
+            <ComboBox x:Name="ServerBox" IsEditable="True" SelectionChanged="OnServerChosen" LostFocus="OnServerTextChanged"
+                      ToolTip="Server name, server\instance, or server,port. Azure: yourserver.database.windows.net" />
+
+            <TextBlock Text="AUTHENTICATION" Style="{StaticResource Label}" />
+            <ComboBox x:Name="AuthBox" IsEditable="True" IsReadOnly="True" SelectionChanged="OnAuthChanged">
+                <ComboBoxItem Content="Windows Authentication" />
+                <ComboBoxItem Content="SQL Server Authentication" />
+                <ComboBoxItem Content="Microsoft Entra MFA" />
+                <ComboBoxItem Content="Microsoft Entra Integrated" />
+            </ComboBox>
+
+            <StackPanel x:Name="UserPanel">
+                <TextBlock x:Name="UserLabel" Text="LOGIN" Style="{StaticResource Label}" />
+                <TextBox x:Name="UserBox" />
+            </StackPanel>
+
+            <StackPanel x:Name="PasswordPanel">
+                <TextBlock Text="PASSWORD" Style="{StaticResource Label}" />
+                <PasswordBox x:Name="PasswordBox" />
+                <CheckBox x:Name="RememberPassword" Content="Remember password" Margin="0,8,0,0"
+                          ToolTip="Kept encrypted for your Windows account (DPAPI) in the Schema Compare settings file" />
+            </StackPanel>
+
+            <CheckBox x:Name="TrustCertificate" Content="Trust server certificate" Margin="0,12,0,0"
+                      ToolTip="Accept the server's certificate without validating it. Needed for most servers with a self-signed certificate." />
+
+            <TextBlock Text="DATABASE" Style="{StaticResource Label}" Margin="2,16,0,4" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Click="OnListDatabases" ToolTip="Connect and list the databases" Margin="4,0,0,0">
+                    <TextBlock Style="{StaticResource Icon}" Text="&#xE72C;" />
+                </Button>
+                <ComboBox x:Name="DatabaseBox" IsEditable="True" DropDownOpened="OnDatabaseDropDown" MaxDropDownHeight="320" />
+            </DockPanel>
+
+            <TextBlock x:Name="StatusText" Style="{StaticResource Muted}" Margin="2,10,0,0" TextWrapping="Wrap" />
+        </StackPanel>
+    </DockPanel>
+</Window>

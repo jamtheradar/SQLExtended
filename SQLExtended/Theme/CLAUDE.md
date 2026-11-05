@@ -16,6 +16,11 @@ the results grid's Find tint (GDI, picks its pair from the cell's own background
   embedded `Search/TsqlDarkHighlighting.xshd` with its foregrounds string-swapped before parsing.
 - `DarkCombo.xaml` — the full ComboBox template (see its header for why setters alone are broken). Name kept
   for its references; it is themed like everything else.
+- `ThemeSnapshot.cs` — pure: the resolved palette as `key=value` lines. `ThemeManager` writes it to
+  `%APPDATA%\SQLExtended\SSMS\theme.ini` on every palette install (temp file, then replace), and SchemaCompare (outside
+  SSMS: the standalone shell's `SchemaCompare/UI/AppTheme.cs`) reads and watches it to match the SSMS theme. `ThemePalette.cs` and this file
+  are linked into that shell. Schema Compare's own XAML now lives in `SQLExtended/SchemaCompare/UI/` and is scanned by
+  `ThemePaletteTests` like the rest. Linked into the tests.
 
 ## Where each colour comes from
 

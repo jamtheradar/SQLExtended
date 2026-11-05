@@ -117,10 +117,27 @@ internal static class ThemeManager
 
             SQLExtendedLog.Info("Theme", $"Installed the palette from the {(dark ? "dark" : "light")} SSMS theme (surface {hex["SqlxSurface"]}, text {hex["SqlxText"]}).");
             Changed?.Invoke(null, EventArgs.Empty);
+            WriteSnapshot(dark, hex);
         }
         catch (Exception ex)
         {
             SQLExtendedLog.Error("Theme", "Could not install the colour palette.", ex);
+        }
+    }
+
+    /// <summary>
+    /// Leaves the palette where SchemaCompare (outside SSMS) can follow it. Only reached when a colour changed, so it is
+    /// one small write per theme switch. A failure costs SchemaCompare its match, never the theme here.
+    /// </summary>
+    private static void WriteSnapshot(bool dark, Dictionary<string, string> hex)
+    {
+        try
+        {
+            ThemeSnapshot.Write(ThemeSnapshot.DefaultPath, dark, hex);
+        }
+        catch (Exception ex)
+        {
+            SQLExtendedLog.Warning("Theme", $"Could not write {ThemeSnapshot.DefaultPath} for SchemaCompare.", ex);
         }
     }
 

@@ -344,6 +344,15 @@
         </Strings>
       </Button>
 
+      <!-- Schema Compare — opens the compare as a document-well tool window. No shortcut: SQL Prompt has none for it. -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="SchemaCompareCommandId" priority="0x0140" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedSearchGroup" />
+        <Strings>
+          <ButtonText>Schema Compare</ButtonText>
+          <ToolTipText>Compare two schemas side by side: export folders, database projects or live databases</ToolTipText>
+        </Strings>
+      </Button>
+
       <!-- SQL History command — opens the dockable history tool window -->
       <Button guid="guidSsmsSchemaViewerCmdSet" id="SqlHistoryCommandId" priority="0x0110" type="Button">
         <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedSearchGroup" />
@@ -960,6 +969,7 @@
       <!-- Not 0x1000 (SQLExtendedMenu) and not 0x0b00 (RegroupServersCommand claims it in code). -->
       <IDSymbol name="JobsMonitorCommandId" value="0x0f10" />
       <IDSymbol name="ReplMonitorCommandId" value="0x0f20" />
+      <IDSymbol name="SchemaCompareCommandId" value="0x0f30" />
 
       <!-- Context menu groups -->
       <IDSymbol name="ResultsGridContextGroup" value="0x1090" />

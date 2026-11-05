@@ -61,6 +61,7 @@ internal static class MainMenuService
         ("SQL History", 0x0700),
         ("Script Library", 0x0900),
         ("Validate Schema References", 0x0a00),
+        ("Schema Compare", 0x0f30),
         (null, 0),
         // Results grid
         ("Find in Results", 0x0c20),
