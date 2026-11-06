@@ -37,6 +37,7 @@ Every multi-tool suite for SSMS is commercial. This is the open-source one.
 | **Statistics** | Parse Statistics (`Ctrl+K, Ctrl+G`) — reads `STATISTICS IO`/`TIME` output from the Messages pane. |
 | **Environment Tabs** | Colours and renames query tabs by the server and database they're connected to, so production is distinguishable at a glance (off by default). Right-click any tab → **Highlight Tab** to paint it by hand. |
 | **Object Explorer** | A SQLExtended submenu on server, database and object nodes: View Schema, Search in Database, Validate Schema, Export, Refresh Schema Cache, the dashboards. Connected servers are grouped into folders matching your Registered Servers groups. |
+| **ScriptCast** | Runs the query window's script (or its selection) on databases ticked across every server connected in Object Explorer, in parallel, and merges the results into one grid per result set with `ServerName` and `DatabaseName` first. Target lists save as plain JSON Cast Lists that a team can share; servers in a list that aren't connected show as unavailable with a Connect button. **Run in transaction** leaves each database's changes open until Commit All (enabled only when every database succeeded) or Rollback All, with auto rollback on failure and a timeout that rolls back if nobody decides. |
 | **Validation** | Validate Schema References (`Ctrl+Alt+V`) — finds references to objects and columns that no longer exist. |
 
 Everything is on the **SQLExtended** menu in the menu bar, which shows each command's current shortcut.

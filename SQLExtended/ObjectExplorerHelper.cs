@@ -178,6 +178,18 @@ internal static class ObjectExplorerHelper
     }
 
     /// <summary>
+    /// The servers connected in Object Explorer and nothing else: no fallback to the schema cache's known servers,
+    /// which <see cref="GetConnectedServers"/> adds. ScriptCast shows a server it has no live connection to as
+    /// unavailable, so a cached one passed off as connected would be offered for a cast that then fails to log in.
+    /// Each connection string points at master. Must be called on the UI thread.
+    /// </summary>
+    public static List<ServerInfo> GetObjectExplorerServers()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        return TryGetFromObjectExplorer() ?? new List<ServerInfo>();
+    }
+
+    /// <summary>
     /// Queries sys.databases on the given server to get a list of all user databases.
     /// Runs synchronously — call from a background thread for large servers.
     ///

@@ -1,0 +1,204 @@
+<UserControl x:Class="SQLExtended.ScriptCast.ScriptCastControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource SqlxSurface}" Foreground="{DynamicResource SqlxText}"
+             FontFamily="Segoe UI" FontSize="12" UseLayoutRounding="True">
+
+    <!-- Control templates are scoped to this control, never Application resources: inside SSMS those would restyle the
+         shell. Theme.xaml is Schema Compare's full set (buttons, check boxes, text boxes, scroll bars); MonitoringTheme
+         is the grid and tab chrome the dashboards share. Colours are all {DynamicResource Sqlx…}. -->
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/SQLExtended;component/SchemaCompare/UI/Theme.xaml"/>
+                <ResourceDictionary Source="/SQLExtended;component/Monitoring/MonitoringTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style x:Key="Dim" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource SqlxTextMuted}"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
+
+            <Style x:Key="LinkButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                <Setter Property="Padding" Value="6,1"/>
+                <Setter Property="FontSize" Value="11"/>
+            </Style>
+
+            <Style x:Key="MessageRow" TargetType="DataGridRow" BasedOn="{StaticResource DarkGridRow}">
+                <Setter Property="ToolTip" Value="{Binding Text}"/>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ===================== Toolbar ===================== -->
+        <Border Grid.Row="0" Background="{DynamicResource SqlxSurfaceAlt}" BorderBrush="{DynamicResource SqlxBorderSubtle}" BorderThickness="0,0,0,1" Padding="8,6">
+            <StackPanel>
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button x:Name="CastButton" Style="{StaticResource AccentButton}" Content="Cast" MinWidth="70" Click="OnCast"
+                            ToolTip="Run the script on every ticked database (F5)"/>
+                    <Button x:Name="CancelButton" Content="Cancel" Margin="6,0,0,0" IsEnabled="False" Click="OnCancel"/>
+                    <Border Width="1" Margin="12,2" Background="{DynamicResource SqlxDivider}"/>
+                    <TextBlock Style="{StaticResource Dim}" Text="Cast List:"/>
+                    <TextBlock x:Name="ListName" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="(none)"
+                               Foreground="{DynamicResource SqlxTextStrong}"/>
+                    <Button Content="Load…" Margin="10,0,0,0" Click="OnLoadList"/>
+                    <Button Content="Save…" Margin="6,0,0,0" Click="OnSaveList" ToolTip="Save the ticked databases as a Cast List"/>
+                    <Button x:Name="OpenJsonButton" Content="Open JSON" Margin="6,0,0,0" IsEnabled="False" Click="OnOpenJson"
+                            ToolTip="Open the Cast List file in an SSMS tab. Saving it reloads the list here."/>
+                </StackPanel>
+                <TextBlock x:Name="SourceText" Style="{StaticResource Dim}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" Margin="12,0,0,0"/>
+            </DockPanel>
+            <!-- Transaction mode (issue #13, stage 2). Commit All / Rollback All are enabled by ScriptCastControl.UpdateTxButtons. -->
+            <DockPanel LastChildFill="True" Margin="0,6,0,0">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <CheckBox x:Name="InTransaction" Content="Run in transaction" VerticalAlignment="Center" Checked="OnTxOptionChanged" Unchecked="OnTxOptionChanged"
+                              ToolTip="Each database runs inside its own transaction, left open until Commit All or Rollback All"/>
+                    <CheckBox x:Name="AutoRollback" Content="Auto rollback" Margin="12,0,0,0" VerticalAlignment="Center" IsChecked="True" IsEnabled="False"
+                              ToolTip="If any database fails, roll back every database and cancel the rest"/>
+                    <TextBlock Style="{StaticResource Dim}" Text="Roll back after" Margin="12,0,6,0"/>
+                    <TextBox x:Name="TxTimeoutBox" Width="56" IsEnabled="False" VerticalAlignment="Center"
+                             ToolTip="Seconds the transactions may stay open after the cast, before all are rolled back. Defaults to Settings > ScriptCast."/>
+                    <TextBlock Style="{StaticResource Dim}" Text="s" Margin="4,0,0,0"/>
+                    <Border Width="1" Margin="12,2" Background="{DynamicResource SqlxDivider}"/>
+                    <Button x:Name="CommitButton" Style="{StaticResource AccentButton}" Content="Commit All" IsEnabled="False" Click="OnCommitAll"
+                            ToolTip="Commit every database, one after another. Enabled only when every database succeeded."/>
+                    <Button x:Name="RollbackButton" Content="Rollback All" Margin="6,0,0,0" IsEnabled="False" Click="OnRollbackAll"/>
+                </StackPanel>
+                <TextBlock x:Name="TxText" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
+                           Foreground="{DynamicResource SqlxWarn}"/>
+            </DockPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Cast List problems: the list still loads; these are the entries it skipped or merged. -->
+        <Border x:Name="IssueBanner" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource SqlxWarnSurface}"
+                BorderBrush="{DynamicResource SqlxWarnBorder}" BorderThickness="0,0,0,1" Padding="10,6">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Dismiss" VerticalAlignment="Top" Click="OnDismissIssues"/>
+                <TextBlock x:Name="IssueText" TextWrapping="Wrap" Foreground="{DynamicResource SqlxText}"/>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" MinWidth="200"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ===================== Targets ===================== -->
+            <DockPanel Grid.Column="0" Margin="8,8,0,8">
+                <TextBox x:Name="FilterBox" DockPanel.Dock="Top" TextChanged="OnFilterChanged" ToolTip="Show databases whose name contains this text"
+                         Tag="Filter databases"/>
+                <DockPanel DockPanel.Dock="Top" Margin="0,6,0,6">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Refresh" Click="OnRefresh"
+                            ToolTip="Re-read the servers in Object Explorer and their databases"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource LinkButton}" Content="Select All" Click="OnSelectAll" ToolTip="Tick every database shown"/>
+                        <Button Style="{StaticResource LinkButton}" Content="Clear All" Margin="4,0,0,0" Click="OnClearAll"/>
+                        <CheckBox x:Name="HideSystem" Content="Hide system" Margin="10,0,0,0" IsChecked="True" VerticalAlignment="Center"
+                                  Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
+                    </StackPanel>
+                </DockPanel>
+                <TextBlock x:Name="TargetsEmpty" DockPanel.Dock="Top" Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="2,8"
+                           Text="No servers are connected in Object Explorer. Connect to one there, or load a Cast List."/>
+
+                <Border BorderBrush="{DynamicResource SqlxBorderSubtle}" BorderThickness="1" Background="{DynamicResource SqlxSurfaceSunken}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="ServerList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Visibility="{Binding IsVisible, Converter={StaticResource BoolVis}}">
+                                        <DockPanel Margin="4,4,4,2">
+                                            <Button DockPanel.Dock="Left" Style="{StaticResource LinkButton}" Padding="2,0" Content="{Binding ExpandGlyph}"
+                                                    Click="OnToggleServer" ToolTip="Expand or collapse"/>
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Content="Connect…"
+                                                    Visibility="{Binding IsUnavailable, Converter={StaticResource BoolVis}}" Click="OnConnectServer"
+                                                    ToolTip="Open the Object Explorer connect dialog. The server is picked up here once it is connected."/>
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}" Style="{StaticResource Dim}" FontSize="11" Margin="6,0,2,0"
+                                                       ToolTip="{Binding Error}"/>
+                                            <CheckBox IsChecked="{Binding AllChecked, Mode=TwoWay}" IsEnabled="{Binding IsConnected}" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            </CheckBox>
+                                        </DockPanel>
+                                        <ItemsControl ItemsSource="{Binding Databases}" Margin="26,0,4,4"
+                                                      Visibility="{Binding IsExpanded, Converter={StaticResource BoolVis}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel Visibility="{Binding IsVisible, Converter={StaticResource BoolVis}}" Margin="0,1">
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Note}" FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource SqlxTextMuted}"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource SqlxWarn}"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" IsEnabled="{Binding CanCheck}">
+                                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                        </CheckBox>
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent"/>
+
+            <!-- ===================== Results ===================== -->
+            <TabControl x:Name="ResultTabs" Grid.Column="2" Margin="0,8,8,8" Background="{DynamicResource SqlxSurface}"
+                        BorderBrush="{DynamicResource SqlxBorderSubtle}" Padding="0">
+                <TabItem x:Name="SummaryTab" Header="Summary" Style="{StaticResource TabHeader}">
+                    <DataGrid x:Name="SummaryGrid" Style="{StaticResource MonitorGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Server" Binding="{Binding Server}" Width="160"/>
+                            <DataGridTextColumn Header="Database" Binding="{Binding Database}" Width="160"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="90"/>
+                            <DataGridTextColumn x:Name="TransactionColumn" Header="Transaction" Binding="{Binding TransactionText}" Width="105" Visibility="Collapsed"/>
+                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" Width="75" SortMemberPath="Duration"/>
+                            <DataGridTextColumn Header="Rows returned" Binding="{Binding RowsReturned, StringFormat=N0}" Width="95" SortMemberPath="RowsReturned"/>
+                            <DataGridTextColumn Header="Rows affected" Binding="{Binding RowsAffected, StringFormat=N0}" Width="95" SortMemberPath="RowsAffected"/>
+                            <DataGridTextColumn Header="Errors" Binding="{Binding ErrorCount}" Width="55"/>
+                            <DataGridTextColumn Header="First error" Binding="{Binding FirstError}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+                <TabItem x:Name="MessagesTab" Header="Messages" Style="{StaticResource TabHeader}">
+                    <DataGrid x:Name="MessageGrid" Style="{StaticResource MonitorGrid}" RowStyle="{StaticResource MessageRow}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" Width="90"/>
+                            <DataGridTextColumn Header="Server" Binding="{Binding Server}" Width="140"/>
+                            <DataGridTextColumn Header="Database" Binding="{Binding Database}" Width="140"/>
+                            <DataGridTextColumn Header="Message" Binding="{Binding OneLine}" ClipboardContentBinding="{Binding Text}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <!-- ===================== Status ===================== -->
+        <Border Grid.Row="3" Background="{DynamicResource SqlxSurfaceAlt}" BorderBrush="{DynamicResource SqlxBorderSubtle}" BorderThickness="0,1,0,0" Padding="10,4">
+            <TextBlock x:Name="StatusText" Style="{StaticResource Dim}" TextTrimming="CharacterEllipsis"
+                       Text="Tick databases, then Cast to run the query window's script on each of them."/>
+        </Border>
+    </Grid>
+</UserControl>

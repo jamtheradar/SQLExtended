@@ -296,6 +296,30 @@ public sealed class SQLExtendedSettings
     /// <summary>How many recent runs the average-duration column averages over.</summary>
     public int JobsAverageSampleRuns { get; set; } = 10;
 
+    // --- ScriptCast (run a script on many databases) ---
+
+    /// <summary>How many databases a cast runs at once; each has its own connection and thread.</summary>
+    public int ScriptCastMaxParallelism { get; set; } = 8;
+
+    /// <summary>Command timeout per batch, in seconds. 0 waits indefinitely, as a query window does.</summary>
+    public int ScriptCastCommandTimeoutSeconds { get; set; } = 0;
+
+    /// <summary>
+    /// Rows kept per result set per database. Every row of every database is held in memory inside SSMS until the
+    /// next cast, so a SELECT * cast to fifty databases needs a ceiling. 0 keeps everything.
+    /// </summary>
+    public int ScriptCastMaxRowsPerResultSet { get; set; } = 100_000;
+
+    /// <summary>
+    /// Transaction mode: how long a cast's transactions may stay open, waiting for Commit All, before every one is rolled
+    /// back. Counted from the end of the cast. Short by default: an open transaction holds its locks on every target.
+    /// The pane can override it per cast.
+    /// </summary>
+    public int ScriptCastTransactionTimeoutSeconds { get; set; } = 300;
+
+    /// <summary>Where Load and Save open by default. Empty means Documents\SQLExtended\Cast Lists.</summary>
+    public string ScriptCastListFolder { get; set; } = "";
+
     // --- Performance dashboard ---
 
     /// <summary>

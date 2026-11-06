@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable"
               xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
@@ -350,6 +350,15 @@
         <Strings>
           <ButtonText>Schema Compare</ButtonText>
           <ToolTipText>Compare two schemas side by side: export folders, database projects or live databases</ToolTipText>
+        </Strings>
+      </Button>
+
+      <!-- ScriptCast — run the query window's script on many databases at once (issue #13). No shortcut: SQL Prompt has none. -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="ScriptCastCommandId" priority="0x0150" type="Button">
+        <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedSearchGroup" />
+        <Strings>
+          <ButtonText>ScriptCast</ButtonText>
+          <ToolTipText>Run the query window's script on databases across several servers and merge the results</ToolTipText>
         </Strings>
       </Button>
 
@@ -970,6 +979,7 @@
       <IDSymbol name="JobsMonitorCommandId" value="0x0f10" />
       <IDSymbol name="ReplMonitorCommandId" value="0x0f20" />
       <IDSymbol name="SchemaCompareCommandId" value="0x0f30" />
+      <IDSymbol name="ScriptCastCommandId" value="0x0f40" />
 
       <!-- Context menu groups -->
       <IDSymbol name="ResultsGridContextGroup" value="0x1090" />

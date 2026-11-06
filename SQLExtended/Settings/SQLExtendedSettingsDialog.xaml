@@ -895,6 +895,49 @@
                 </ScrollViewer>
             </TabItem>
 
+            <!-- ===== ScriptCast Tab ===== -->
+            <TabItem Header="ScriptCast">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16,8">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="ScriptCast" Margin="0,4,0,6"/>
+                        <TextBlock Style="{StaticResource DimLabel}" Margin="0,0,0,8"
+                                   Text="SQLExtended → ScriptCast runs the query window's script (or its selection) on databases ticked across the servers connected in Object Explorer, and merges the results into one grid per result set."/>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="Execution"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Style="{StaticResource SettingLabel}" Text="Databases run at once:"/>
+                            <TextBox x:Name="TxtScriptCastParallelism" Style="{StaticResource DarkTextBox}" Width="80"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Style="{StaticResource SettingLabel}" Text="Command timeout (seconds, 0 = none):"/>
+                            <TextBox x:Name="TxtScriptCastTimeout" Style="{StaticResource DarkTextBox}" Width="80"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Style="{StaticResource SettingLabel}" Text="Rows kept per result set per database (0 = all):"/>
+                            <TextBox x:Name="TxtScriptCastMaxRows" Style="{StaticResource DarkTextBox}" Width="80"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource DimLabel}"
+                                   Text="Each database gets its own connection. Results are held in memory until the next cast, so the row limit keeps a wide SELECT from filling SSMS; a database that hits it says so in Messages."/>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="Transaction mode"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Style="{StaticResource SettingLabel}" Text="Roll back open transactions after (seconds):"/>
+                            <TextBox x:Name="TxtScriptCastTxTimeout" Style="{StaticResource DarkTextBox}" Width="80"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource DimLabel}"
+                                   Text="With Run in transaction ticked, each database's changes wait for Commit All. Counted from the end of the cast; when it runs out every transaction is rolled back. Open transactions hold locks on every target, so keep it short. The pane can change it for one cast."/>
+
+                        <TextBlock Style="{StaticResource SectionHeader}" Text="Cast Lists"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Style="{StaticResource SettingLabel}" Text="Default folder:"/>
+                            <TextBox x:Name="TxtScriptCastFolder" Style="{StaticResource DarkTextBox}" Width="360"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource DimLabel}"
+                                   Text="Where Load and Save open. Empty means Documents\SQLExtended\Cast Lists. A network share works, so a team can keep its lists in one place. Cast Lists never hold credentials."/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- ===== Monitoring Tab ===== -->
             <!--
                 Thresholds only. The dashboards' refresh intervals live on their own toolbars because they are
