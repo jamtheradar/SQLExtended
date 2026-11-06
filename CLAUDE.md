@@ -101,6 +101,7 @@ load automatically when a file in that folder is opened, but not while merely pl
 | Environment Tabs (tab colouring by connection) | `SQLExtended/EnvTabs/CLAUDE.md` |
 | Execution safety — confirm UPDATE/DELETE without WHERE (`Query.Execute` hook) | `SQLExtended/Safety/CLAUDE.md` |
 | Object Explorer context menu | `SQLExtended/ObjectExplorer/CLAUDE.md` |
+| ScriptCast — one script on many databases, Cast Lists, merged result grids (issue #13, stage 1) | `SQLExtended/ScriptCast/CLAUDE.md` |
 | SchemaExporter — the console app that links the folder export, its staging mirror and git | `SchemaExporter/CLAUDE.md` |
 | SchemaCompare — the two hosts (SSMS tool window, standalone shell) and `ICompareHost`, matching objects across exports and projects, live databases as sources, the two normalisers, the ignore options, change scripts | `SQLExtended/SchemaCompare/CLAUDE.md` (the shell: `SchemaCompare/CLAUDE.md`) |
 

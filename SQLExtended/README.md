@@ -41,6 +41,7 @@ that folder** — they load automatically when you open a file there, but not wh
 | `Monitoring/` | Performance, Agent Jobs, Always On, Replication dashboards | ● |
 | `ObjectExplorer/` | Object Explorer context menu and server-group folders | ● |
 | `ResultsGrid/` | Aggregates pane, Find in grid, script results as INSERT | ● |
+| `ScriptCast/` | Run one script on many databases and merge the results; Cast Lists; transaction mode (Commit All / Rollback All) | ● |
 | `ScriptLibrary/` | Saved script library | ○ |
 | `Search/` | SQL Search over the index, including Agent job steps | ● |
 | `Settings/` | Settings dialog and the persisted settings model | ○ |

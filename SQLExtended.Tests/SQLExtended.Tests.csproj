@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
@@ -33,6 +33,14 @@
   <ItemGroup>
     <Compile Include="..\SQLExtended\Theme\ThemePalette.cs" Link="Theme\ThemePalette.cs" />
     <Compile Include="..\SQLExtended\Theme\ThemeSnapshot.cs" Link="Theme\ThemeSnapshot.cs" />
+  </ItemGroup>
+
+  <!-- ScriptCast's pure half: GO splitting, Cast List JSON, the may-change check and the result merge. The runner and pane are not linked. -->
+  <ItemGroup>
+    <Compile Include="..\SQLExtended\ScriptCast\BatchSplitter.cs" Link="ScriptCast\BatchSplitter.cs" />
+    <Compile Include="..\SQLExtended\ScriptCast\CastList.cs" Link="ScriptCast\CastList.cs" />
+    <Compile Include="..\SQLExtended\ScriptCast\ScriptCastAnalyzer.cs" Link="ScriptCast\ScriptCastAnalyzer.cs" />
+    <Compile Include="..\SQLExtended\ScriptCast\ResultMerger.cs" Link="ScriptCast\ResultMerger.cs" />
   </ItemGroup>
 
   <!-- The UPDATE/DELETE-without-WHERE check; the DTE hook beside it is not linked. -->

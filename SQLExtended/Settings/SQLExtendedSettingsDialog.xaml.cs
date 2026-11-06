@@ -157,6 +157,12 @@ public partial class SQLExtendedSettingsDialog : Window
             TxtJobsHistoryDays.Text = _settings.JobsHistoryDays.ToString();
             TxtJobsAverageSampleRuns.Text = _settings.JobsAverageSampleRuns.ToString();
 
+            TxtScriptCastParallelism.Text = _settings.ScriptCastMaxParallelism.ToString();
+            TxtScriptCastTimeout.Text = _settings.ScriptCastCommandTimeoutSeconds.ToString();
+            TxtScriptCastMaxRows.Text = _settings.ScriptCastMaxRowsPerResultSet.ToString();
+            TxtScriptCastTxTimeout.Text = _settings.ScriptCastTransactionTimeoutSeconds.ToString();
+            TxtScriptCastFolder.Text = _settings.ScriptCastListFolder ?? "";
+
             // Monitoring thresholds. Invariant culture on the way out as well as in, so what is displayed is
             // what the settings file holds regardless of the machine's decimal separator.
             TxtPerfRecentDumpDays.Text = _settings.PerfRecentDumpDays.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -266,6 +272,12 @@ public partial class SQLExtendedSettingsDialog : Window
         _settings.JobsRefreshSeconds = ParseInt(TxtJobsRefreshSeconds.Text, 15);
         _settings.JobsHistoryDays = ParseInt(TxtJobsHistoryDays.Text, 7);
         _settings.JobsAverageSampleRuns = ParseInt(TxtJobsAverageSampleRuns.Text, 10);
+
+        _settings.ScriptCastMaxParallelism = Math.Max(1, Math.Min(64, ParseInt(TxtScriptCastParallelism.Text, 8)));
+        _settings.ScriptCastCommandTimeoutSeconds = Math.Max(0, ParseInt(TxtScriptCastTimeout.Text, 0));
+        _settings.ScriptCastMaxRowsPerResultSet = Math.Max(0, ParseInt(TxtScriptCastMaxRows.Text, 100_000));
+        _settings.ScriptCastTransactionTimeoutSeconds = Math.Max(10, Math.Min(86_400, ParseInt(TxtScriptCastTxTimeout.Text, 300)));
+        _settings.ScriptCastListFolder = TxtScriptCastFolder.Text?.Trim() ?? "";
 
         // Monitoring thresholds
         _settings.PerfRecentDumpDays = ParseInt(TxtPerfRecentDumpDays.Text, 30);

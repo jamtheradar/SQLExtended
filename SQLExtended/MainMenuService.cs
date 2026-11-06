@@ -1,4 +1,4 @@
-using EnvDTE;
+﻿using EnvDTE;
 using Microsoft.VisualStudio.CommandBars;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -62,6 +62,7 @@ internal static class MainMenuService
         ("Script Library", 0x0900),
         ("Validate Schema References", 0x0a00),
         ("Schema Compare", 0x0f30),
+        ("ScriptCast", 0x0f40),
         (null, 0),
         // Results grid
         ("Find in Results", 0x0c20),
