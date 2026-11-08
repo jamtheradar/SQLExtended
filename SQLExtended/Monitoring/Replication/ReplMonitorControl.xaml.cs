@@ -327,6 +327,7 @@ public partial class ReplMonitorControl : UserControl
             _publications.Clear(); _subscriptions.Clear(); _attention.Clear(); _agents.Clear();
             _publisherDatabases.Clear(); _subscriberDatabases.Clear(); _issues.Clear();
             _allErrors = new List<ReplErrorRow>();
+            CloseDetail();   // the agent and error ids it shows mean nothing on the new server
             _history.Clear();
             _pendingCommands = null;
             _pendingCommandsAt = null;
@@ -595,6 +596,7 @@ public partial class ReplMonitorControl : UserControl
             _publications.Clear(); _subscriptions.Clear(); _attention.Clear(); _agents.Clear();
             _publisherDatabases.Clear(); _subscriberDatabases.Clear(); _issues.Clear();
             TracerPublicationCombo.Items.Clear();
+            CloseDetail();
 
             ApplyRoleCards(snapshot);
             SetVerdict("Nothing to monitor", snapshot.UnavailableReason, ReplIssueSeverity.Information);

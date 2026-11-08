@@ -116,8 +116,16 @@
             </Grid>
         </Border>
 
-        <!-- Row 2: tabs -->
-        <TabControl x:Name="Tabs" Grid.Row="2" Background="{DynamicResource SqlxSurface}" BorderBrush="{DynamicResource SqlxBorderSubtle}" BorderThickness="0,1,0,0"
+        <!-- Row 2: tabs, and under them the detail pane for the selected subscription, agent or error -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="140"/>
+                <RowDefinition Height="Auto"/>
+                <!-- Zero until a row is clicked; the splitter then resizes it, and the height is kept when it is closed. -->
+                <RowDefinition x:Name="DetailRow" Height="0"/>
+            </Grid.RowDefinitions>
+
+        <TabControl x:Name="Tabs" Grid.Row="0" Background="{DynamicResource SqlxSurface}" BorderBrush="{DynamicResource SqlxBorderSubtle}" BorderThickness="0,1,0,0"
                     Padding="0,6,0,0">
             <TabControl.ItemContainerStyle>
                 <Style TargetType="TabItem" BasedOn="{StaticResource TabHeader}"/>
@@ -202,7 +210,7 @@
                         <TextBlock Text="Subscriptions needing attention" Style="{StaticResource SectionHeading}"/>
                         <TextBlock x:Name="AttentionEmpty" Text="All subscriptions are healthy."
                                    Foreground="{DynamicResource SqlxGood}" FontSize="11" Margin="0,0,0,6"/>
-                        <DataGrid x:Name="AttentionGrid" Style="{StaticResource MonitorGrid}" MaxHeight="260" Visibility="Collapsed">
+                        <DataGrid x:Name="AttentionGrid" Style="{StaticResource MonitorGrid}" SelectedCellsChanged="DetailSource_SelectedCellsChanged" MaxHeight="260" Visibility="Collapsed">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Publication" Binding="{Binding Publication}" Width="170"/>
                                 <DataGridTextColumn Header="Subscriber" Binding="{Binding Subscriber}" Width="150"/>
@@ -291,7 +299,7 @@
                                    Text="Pending counts load on demand — the count scans the command table, which is slowest when a backlog makes it most interesting."/>
                     </StackPanel>
 
-                    <DataGrid x:Name="SubscriptionGrid" Grid.Row="1" Style="{StaticResource MonitorGrid}" RowHeight="26">
+                    <DataGrid x:Name="SubscriptionGrid" Grid.Row="1" Style="{StaticResource MonitorGrid}" SelectedCellsChanged="DetailSource_SelectedCellsChanged" RowHeight="26">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="140"/>
                             <DataGridTextColumn Header="Publisher DB" Binding="{Binding PublisherDb}" Width="140"/>
@@ -398,7 +406,7 @@
                 beats four tabs when the question is "which agent is broken".
             -->
             <TabItem Header="Agents">
-                <DataGrid x:Name="AgentGrid" Style="{StaticResource MonitorGrid}">
+                <DataGrid x:Name="AgentGrid" Style="{StaticResource MonitorGrid}" SelectedCellsChanged="DetailSource_SelectedCellsChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Agent type" Binding="{Binding AgentTypeText}" Width="110"/>
                         <DataGridTemplateColumn Header="Status" Width="100" SortMemberPath="RunStatusText">
@@ -571,13 +579,13 @@
                         <ComboBox x:Name="ErrorCountCombo" Style="{StaticResource ToolCombo}" Margin="6,0,0,0" Width="90"
                                   ToolTip="How many of the most recent errors to return"/>
                         <TextBlock x:Name="ErrorsHint" Foreground="{DynamicResource SqlxTextMuted}" FontSize="11" Margin="12,0,0,0" VerticalAlignment="Center"
-                                   Text="Loads on demand. MSrepl_errors holds the full text and the transaction sequence number an agent stopped on."/>
+                                   Text="Loads on demand. Click a row for the whole error chain, the agent's history and the command it stopped on."/>
                     </StackPanel>
 
-                    <DataGrid x:Name="ErrorGrid" Grid.Row="1" Style="{StaticResource MonitorGrid}">
+                    <DataGrid x:Name="ErrorGrid" Grid.Row="1" Style="{StaticResource MonitorGrid}" SelectedCellsChanged="DetailSource_SelectedCellsChanged">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="When" Binding="{Binding Time, Converter={StaticResource Ts}}" Width="145"/>
-                            <DataGridTextColumn Header="Code" Binding="{Binding ErrorCode, Converter={StaticResource Dash}}" Width="80"
+                            <DataGridTextColumn Header="Code" Binding="{Binding ErrorCode, Converter={StaticResource Dash}}" Width="130"
                                                 ElementStyle="{StaticResource NumCell}"/>
                             <DataGridTextColumn Header="Source" Binding="{Binding SourceName, Converter={StaticResource Dash}}" Width="200"/>
                             <DataGridTextColumn Header="Transaction seqno" Binding="{Binding XactSeqno, Converter={StaticResource Dash}}" Width="200"/>
@@ -599,6 +607,123 @@
                 </Grid>
             </TabItem>
         </TabControl>
+
+            <GridSplitter x:Name="DetailSplitter" Grid.Row="1" Height="7" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                          ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" Visibility="Collapsed"
+                          ToolTip="Drag to resize the detail pane"/>
+
+            <!--
+                Detail pane. The grids can only show the latest history row's one-line error; troubleshooting needs
+                the whole MSrepl_errors chain (one failure writes several rows under one id), the agent's recent
+                history, and the command it stopped on, decoded by sp_browsereplcmds with the row's values in it.
+                Loaded on the click, never on the timer.
+            -->
+            <Border x:Name="DetailPane" Grid.Row="2" Visibility="Collapsed" Background="{DynamicResource SqlxSurfaceAlt}"
+                    BorderBrush="{DynamicResource SqlxBorder}" BorderThickness="1" CornerRadius="3" Padding="10,8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock x:Name="DetailTitle" Foreground="{DynamicResource SqlxTextStrong}" FontSize="13" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="DetailSubtitle" Foreground="{DynamicResource SqlxTextMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                            <Button Content="Copy details" Style="{StaticResource ToolButton}" Click="DetailCopy_Click"
+                                    ToolTip="Copy the error chain, the failing command and the agent history as text"/>
+                            <Button Content="Open as query" Style="{StaticResource ToolButton}" Margin="4,0,0,0" Click="DetailOpenAsQuery_Click"
+                                    ToolTip="Open the T-SQL behind this pane in a new query window (run it against the distributor)"/>
+                            <Button Content="✕" Style="{StaticResource ToolButton}" Margin="4,0,0,0" Padding="8,4" Click="DetailClose_Click"
+                                    ToolTip="Close the detail pane"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*" MinWidth="200"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="2*" MinWidth="200"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*" MinHeight="40"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*" MinHeight="40"/>
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0" Margin="0,0,0,3">
+                                <TextBlock Text="ERROR" Style="{StaticResource CardLabel}" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="DetailErrorWhen" Foreground="{DynamicResource SqlxTextMuted}" FontSize="10" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            </DockPanel>
+                            <TextBox x:Name="DetailErrorText" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                                     Background="{DynamicResource SqlxSurface}" Foreground="{DynamicResource SqlxText}"
+                                     BorderBrush="{DynamicResource SqlxBorderSubtle}" FontSize="12" Padding="4,3"/>
+
+                            <StackPanel Grid.Row="2" Margin="0,8,0,3">
+                                <TextBlock Text="FAILING COMMAND" Style="{StaticResource CardLabel}"/>
+                                <TextBlock x:Name="DetailCommandSummary" Foreground="{DynamicResource SqlxTextChrome}" FontSize="11" TextWrapping="Wrap"
+                                           Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <TextBox x:Name="DetailCommandText" Grid.Row="3" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                                     Background="{DynamicResource SqlxSurface}" Foreground="{DynamicResource SqlxText}"
+                                     BorderBrush="{DynamicResource SqlxBorderSubtle}" FontFamily="Cascadia Code, Consolas, Courier New"
+                                     FontSize="12" Padding="4,3"/>
+                        </Grid>
+
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0" Margin="0,0,0,3">
+                                <TextBlock Text="AGENT HISTORY" Style="{StaticResource CardLabel}" VerticalAlignment="Center"/>
+                                <TextBlock Text="click a red row to see that error" Foreground="{DynamicResource SqlxTextMuted}" FontSize="10"
+                                           Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <DataGrid x:Name="DetailHistoryGrid" Grid.Row="1" Style="{StaticResource MonitorGrid}" SelectionUnit="FullRow"
+                                      SelectionMode="Single" SelectionChanged="DetailHistory_SelectionChanged">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="When" Binding="{Binding Time, Converter={StaticResource Ts}}" Width="130"/>
+                                    <DataGridTemplateColumn Header="Status" Width="80" SortMemberPath="RunStatusText">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding RunStatusText, Converter={StaticResource Dash}}" FontWeight="SemiBold"
+                                                           Foreground="{Binding RunStatus, Converter={StaticResource AgentStatus}}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Cmds" Binding="{Binding DeliveredCommands, Converter={StaticResource Num}}" Width="70"
+                                                        ElementStyle="{StaticResource NumCell}"/>
+                                    <DataGridTextColumn Header="Message" Binding="{Binding Comments, Converter={StaticResource OneLine}}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                                <Setter Property="ToolTip" Value="{Binding Comments}"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
 
         <!-- Row 3: status bar -->
         <Grid Grid.Row="3" Margin="0,5,0,0">

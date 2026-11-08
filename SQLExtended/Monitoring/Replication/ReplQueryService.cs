@@ -36,7 +36,7 @@ namespace SQLExtended.Monitoring.Replication;
 ///    in MSrepl_commands, which on a backlogged distributor is exactly when it is most expensive and most
 ///    wanted; putting it on the refresh timer would make the dashboard part of the problem.
 /// </summary>
-internal static class ReplQueryService
+internal static partial class ReplQueryService
 {
     internal const int CommandTimeoutSeconds = 30;
 
@@ -991,6 +991,7 @@ GROUP BY ds.agent_id;";
 
     private const string ErrorsBodySql = @"
 SELECT TOP (@top)
+    e.id,
     e.time,
     e.error_type_id,
     e.source_type_id,
@@ -1022,11 +1023,12 @@ ORDER BY e.time DESC;";
                     {
                         rows.Add(new ReplErrorRow
                         {
+                            Id = Int(reader, "id"),
                             Time = Date(reader, "time"),
                             ErrorTypeId = Int(reader, "error_type_id"),
                             SourceTypeId = Int(reader, "source_type_id"),
                             SourceName = Str(reader, "source_name"),
-                            ErrorCode = Int(reader, "error_code"),
+                            ErrorCode = Str(reader, "error_code"),
                             ErrorText = Str(reader, "error_text"),
                             XactSeqno = Str(reader, "xact_seqno"),
                             CommandId = Int(reader, "command_id"),

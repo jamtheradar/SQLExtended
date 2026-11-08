@@ -84,6 +84,19 @@ wanted:
 - **Errors** (`MSrepl_errors`) is the text the history rows only reference by `error_id`.
 - **Tracer tokens**, plus posting one.
 
+**The detail pane** (`ReplMonitorControl.Detail.cs`, `ReplQueryService.Detail.cs`) opens under the tabs when a row
+is clicked in Overview, Subscriptions, Agents or Errors, and is a fourth on-demand read. What it is guarding:
+- **`MSrepl_errors.id` is not unique.** One failure writes several rows under one id — the agent's wrapper, then
+  the subscriber's SQL error, then the data source — and the history row points at the id, so the grids only ever
+  show one layer. The pane shows the whole chain. `error_code` is `sysname` (`MSSQL_REPL20011`, `08001`), not int:
+  reading it as int threw "Input string was not in a correct format" and killed the Errors tab.
+- **The failing command** is `sp_browsereplcmds` with the error's `xact_seqno` as both bounds **plus
+  `@publisher_database_id`** (a seek on `MSrepl_commands`' clustered key; without it, a scan). The command id is
+  matched client-side, because the procedure demands every other filter alongside `@command_id`. An all-zero
+  seqno means the agent failed before reaching a command. `MSarticles` names the source and destination tables.
+- **An Errors-tab row does not name its agent** (`source_name` is the layer that raised it), so the agent is found
+  by scanning the history tables for `error_id` — no index, which is why it runs only on a click.
+
 **`ReplActionService.PostTracerToken` is the only writing code here.** A tracer token is the only end-to-end
 measurement in replication that is not an estimate — a real transaction, timed as it lands — and a topology that
 looks idle because nothing has changed is indistinguishable from a broken one until you post one. Rules match

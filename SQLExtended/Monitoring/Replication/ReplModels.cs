@@ -437,8 +437,15 @@ internal sealed class ReplSubscriberDatabaseRow : ReplRowBase
 /// <summary>One row of MSrepl_errors — the error text the history tables only reference by id.</summary>
 internal sealed class ReplErrorRow
 {
+    /// <summary>
+    /// MSrepl_errors.id — not unique. One failure writes several rows under the same id: the agent's own message
+    /// and then each layer beneath it (the subscriber's SQL error, the data source, …). The history tables point
+    /// at this id, so it is how the detail pane gathers the whole chain.
+    /// </summary>
+    public int? Id { get; set; }
     public DateTime? Time { get; set; }
-    public int? ErrorCode { get; set; }
+    /// <summary>MSrepl_errors.error_code is sysname, not int: "MSSQL_REPL20011", "08001", or a bare number.</summary>
+    public string ErrorCode { get; set; }
     public string ErrorText { get; set; }
     public string SourceName { get; set; }
     public int? SourceTypeId { get; set; }
@@ -449,6 +456,85 @@ internal sealed class ReplErrorRow
 
     /// <summary>Everything in MSrepl_errors is an error; the tint is unconditional.</summary>
     public bool IsError => true;
+}
+
+/// <summary>
+/// What the detail pane was opened on: an agent (from the Overview, Subscriptions or Agents grids) or a single
+/// error id (from the Errors tab, whose rows do not name their agent — the agent is looked up from history).
+/// </summary>
+internal sealed class ReplDetailTarget
+{
+    public ReplAgentType AgentType { get; set; } = ReplAgentType.Distribution;
+    public int? AgentId { get; set; }
+    public int? ErrorId { get; set; }
+
+    public string Title { get; set; }
+    public string JobName { get; set; }
+
+    /// <summary>The error the grid row already showed, used until the full chain arrives (and if it never does).</summary>
+    public string KnownError { get; set; }
+
+    public string Key => $"{AgentType}|{AgentId}|{ErrorId}";
+}
+
+/// <summary>One row of an agent's history table, newest first in the detail pane.</summary>
+internal sealed class ReplHistoryRow
+{
+    public DateTime? Time { get; set; }
+    public ReplRunStatus RunStatus { get; set; }
+    public string Comments { get; set; }
+    public int? ErrorId { get; set; }
+    public long? DeliveredTransactions { get; set; }
+    public long? DeliveredCommands { get; set; }
+
+    public string RunStatusText => ReplValueParser.Describe(RunStatus);
+    public bool HasError => ErrorId.GetValueOrDefault() > 0;
+
+    public bool IsUnhealthy => RunStatus == ReplRunStatus.Failed || HasError;
+    public bool IsWarning => !IsUnhealthy && RunStatus == ReplRunStatus.Retrying;
+}
+
+/// <summary>
+/// The command a distribution agent stopped on, decoded by <c>sp_browsereplcmds</c> from the transaction sequence
+/// number and command id that MSrepl_errors recorded. The command text carries the row's values, which is usually
+/// what turns "conversion … out-of-range" into a fixable fact.
+/// </summary>
+internal sealed class ReplFailingCommand
+{
+    public string XactSeqno { get; set; }
+    public int? CommandId { get; set; }
+    public int? ArticleId { get; set; }
+    public string Article { get; set; }
+    public string SourceObject { get; set; }
+    public string DestinationObject { get; set; }
+    public string CommandText { get; set; }
+
+    /// <summary>How many commands the failing transaction holds — one bad row can sit inside a large batch.</summary>
+    public int CommandsInTransaction { get; set; }
+
+    /// <summary>Set when the command could not be found or read, in place of the text.</summary>
+    public string Problem { get; set; }
+}
+
+/// <summary>Everything the detail pane shows for one agent. Assembled off the UI thread.</summary>
+internal sealed class ReplAgentDetail
+{
+    public int? AgentId { get; set; }
+    public string AgentName { get; set; }
+    public int? PublisherId { get; set; }
+    public int? PublisherDatabaseId { get; set; }
+    public string Publisher { get; set; }
+    public string PublisherDb { get; set; }
+    public string Publication { get; set; }
+    public string Subscriber { get; set; }
+    public string SubscriberDb { get; set; }
+
+    public List<ReplHistoryRow> History { get; } = new List<ReplHistoryRow>();
+
+    /// <summary>MSrepl_errors rows for the error ids in <see cref="History"/> (or the one id asked for), newest id first.</summary>
+    public List<ReplErrorRow> Errors { get; } = new List<ReplErrorRow>();
+
+    public List<string> Warnings { get; } = new List<string>();
 }
 
 /// <summary>
