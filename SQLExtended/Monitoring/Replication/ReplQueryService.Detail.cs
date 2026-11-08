@@ -327,7 +327,8 @@ EXEC sys.sp_browsereplcmds
 
                     while (await reader.ReadAsync(ct).ConfigureAwait(false))
                     {
-                        int? rowCommandId = ordCommandId < 0 || reader.IsDBNull(ordCommandId) ? (int?)null : Convert.ToInt32(reader.GetValue(ordCommandId));
+                        object rawCommandId = ValueAt(reader, ordCommandId);
+                        int? rowCommandId = rawCommandId == null ? (int?)null : Convert.ToInt32(rawCommandId);
                         if (rowCommandId != null) seen.Add(rowCommandId.Value);
                         firstCommandId ??= rowCommandId;
 
@@ -335,10 +336,10 @@ EXEC sys.sp_browsereplcmds
                         bool match = commandId == null ? rowCommandId == firstCommandId : rowCommandId == commandId;
                         if (!match) continue;
 
-                        if (result.ArticleId == null && ordArticle >= 0 && !reader.IsDBNull(ordArticle))
-                            result.ArticleId = Convert.ToInt32(reader.GetValue(ordArticle));
-                        if (ordCommand >= 0 && !reader.IsDBNull(ordCommand))
-                            text.Append(Convert.ToString(reader.GetValue(ordCommand)));
+                        if (result.ArticleId == null && ValueAt(reader, ordArticle) is object article)
+                            result.ArticleId = Convert.ToInt32(article);
+                        if (ValueAt(reader, ordCommand) is object command)
+                            text.Append(Convert.ToString(command));
                     }
 
                     result.CommandsInTransaction = seen.Count;
@@ -386,6 +387,9 @@ WHERE a.article_id = @article_id AND a.publisher_db = @publisher_db AND (@publis
 
         return result;
     }
+
+    /// <summary>The value at an ordinal, or null when the column is absent (-1) or NULL. Kept synchronous like the other readers here.</summary>
+    private static object ValueAt(SqlDataReader reader, int ordinal) => ordinal < 0 || reader.IsDBNull(ordinal) ? null : reader.GetValue(ordinal);
 
     private static string TwoPart(string schema, string name) =>
         string.IsNullOrEmpty(name) ? null : string.IsNullOrEmpty(schema) ? $"[{name}]" : $"[{schema}].[{name}]";

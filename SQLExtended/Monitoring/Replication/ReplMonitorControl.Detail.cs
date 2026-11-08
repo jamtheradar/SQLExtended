@@ -30,6 +30,8 @@ public partial class ReplMonitorControl
 
     private void DetailSource_SelectedCellsChanged(object sender, SelectedCellsChangedEventArgs e)
     {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
         // Selection is by cell in these grids; any cell of a row stands for the row. A deselection (Ctrl+click,
         // or a refresh dropping the row) leaves the pane as it is rather than blanking it under the reader.
         if (e.AddedCells.Count == 0) return;
@@ -317,6 +319,8 @@ public partial class ReplMonitorControl
 
     private void DetailHistory_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
         if (DetailHistoryGrid.SelectedItem is ReplHistoryRow row && row.HasError && row.ErrorId != _detailErrorId)
         {
             if (_detail != null && _detail.Errors.Any(r => r.Id == row.ErrorId)) ShowErrorChain(row.ErrorId);
