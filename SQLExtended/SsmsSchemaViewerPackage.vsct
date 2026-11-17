@@ -555,6 +555,18 @@
         </Strings>
       </Button>
 
+      <!-- Export to Excel — directly under SSMS's own "Save Results As..." (priority 0x0100 in IDG_SQLWB_SAVEPOPUP, read
+           out of SQLEditors' Menus.ctmenu with VSCT.exe). SSMS also places that group on the Query menu, so the item shows
+           there too; DynamicVisibility hides it, as Save Results As hides, when the window has no results grid. -->
+      <Button guid="guidSsmsSchemaViewerCmdSet" id="ExportToExcelCommandId" priority="0x0110" type="Button">
+        <Parent guid="guidSQLEditorGroup" id="IDG_SQLWB_SAVEPOPUP" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Export to Excel...</ButtonText>
+          <ToolTipText>Save the selected cells, rows or columns of this results grid as an Excel workbook</ToolTipText>
+        </Strings>
+      </Button>
+
       <!-- Toolbar: Cache status indicator (read-only display text) -->
       <Button guid="guidSsmsSchemaViewerCmdSet" id="ToolbarCacheStatusId" priority="0x0100" type="Button">
         <Parent guid="guidSsmsSchemaViewerCmdSet" id="ToolbarCacheGroup" />
@@ -585,6 +597,9 @@
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedGridGroup"/>
     </CommandPlacement>
     <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="ScriptResultsInsertCommandId" priority="0x0120">
+      <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedGridGroup"/>
+    </CommandPlacement>
+    <CommandPlacement guid="guidSsmsSchemaViewerCmdSet" id="ExportToExcelCommandId" priority="0x0125">
       <Parent guid="guidSsmsSchemaViewerCmdSet" id="SQLExtendedGridGroup"/>
     </CommandPlacement>
 
@@ -972,6 +987,7 @@
       <IDSymbol name="GridFindCommandId" value="0x0c20" />
       <IDSymbol name="GoToColumnCommandId" value="0x0c30" />
       <IDSymbol name="CopyAsInFilterCommandId" value="0x0c40" />
+      <IDSymbol name="ExportToExcelCommandId" value="0x0c50" />
       <IDSymbol name="StatisticsCommandId" value="0x0d00" />
       <IDSymbol name="AgMonitorCommandId" value="0x0e00" />
       <IDSymbol name="PerfMonitorCommandId" value="0x0f00" />
@@ -1003,6 +1019,9 @@
       <IDSymbol name="IDM_SQLWB_SQLSCRIPT_CONTEXT" value="0x0050" />
       <IDSymbol name="IDM_SQLWB_SQLRESMSG_CONTEXT" value="0x0060" />
       <IDSymbol name="IDM_SQLWB_SQLRESGRID_CONTEXT" value="0x0070" />
+      <!-- The group holding "Save Results As..." (cmdidWBSaveResultsAs), placed on the grid's context menu and the Query
+           menu. Not in SQLWorkbenchCommands: read from SQLEditors.dll's embedded Menus.ctmenu, decompiled with VSCT.exe. -->
+      <IDSymbol name="IDG_SQLWB_SAVEPOPUP" value="0x00B0" />
     </GuidSymbol>
 
     <!-- The "SQL Query Editor" key binding scope, as Tools > Options > Keyboard lists it (CurrentSettings.vssettings

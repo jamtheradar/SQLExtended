@@ -70,6 +70,7 @@ internal static class MainMenuService
         ("Grid Aggregates", 0x0c10),
         ("Copy as IN Filter", 0x0c40),
         ("Script Results as INSERT", 0x0c00),
+        ("Export to Excel...", 0x0c50),
         (null, 0),
         // Monitoring dashboards
         ("Performance Monitor", 0x0f00),
