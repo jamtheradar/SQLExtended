@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Threading;
 using SQLExtended.ResultsGrid.Aggregates;
@@ -9,9 +10,20 @@ namespace SQLExtended.Tests.ResultsGrid;
 /// The aggregate arithmetic. Every failure mode here is a number that looks right — nothing throws, no
 /// grid goes blank — so the assertions are about exactness and about which values are counted, not about
 /// the code running.
+///
+/// <para>Parsing and formatting follow the current culture, as the grid and the window do, so every test runs under
+/// en-US unless it sets a culture of its own. Without that the expected "3.00" is "3,00" on a pt-BR or de-DE machine,
+/// and "1,5" is a number there rather than text (issue #17). xUnit builds a new instance per test and runs the
+/// constructor, the test and <see cref="Dispose"/> on the same thread.</para>
 /// </summary>
-public class GridAggregateCalculatorTests
+public class GridAggregateCalculatorTests : IDisposable
 {
+    private readonly CultureInfo _previousCulture = Thread.CurrentThread.CurrentCulture;
+
+    public GridAggregateCalculatorTests() => Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+
+    public void Dispose() => Thread.CurrentThread.CurrentCulture = _previousCulture;
+
     private static GridColumnAggregate Aggregate(params string[] values)
     {
         var accumulator = new GridAggregateAccumulator();
@@ -126,6 +138,16 @@ public class GridAggregateCalculatorTests
     }
 
     [Fact]
+    public void SumsAndAveragesAreShownInTheCurrentCulture()
+    {
+        // The window is read by the user, so a pt-BR user sees a comma decimal separator, as in their other tools.
+        Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("pt-BR");
+
+        Assert.Equal("3,00", GridAggregateFormat.Sum(Aggregate("1,50", "1,50")));
+        Assert.Equal("1,67", GridAggregateFormat.Average(Aggregate("1", "2", "2")));
+    }
+
+    [Fact]
     public void AValueBeyondDecimalFallsBackToDoubleAndSaysSo()
     {
         var result = Aggregate("1E+300", "1");
@@ -191,7 +213,7 @@ public class GridAggregateCalculatorTests
     // --- Parsing ----------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("1,5")]      // a German-rendered decimal, which DateTime.TryParse accepts under en-US
+    [InlineData("1,5")]      // a German-rendered decimal, which DateTime.TryParse accepts under en-US (the class's culture)
     [InlineData("May")]
     [InlineData("Q1")]
     public void ShortTextIsNotMistakenForADate(string value)
