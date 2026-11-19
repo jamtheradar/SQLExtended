@@ -33,6 +33,10 @@ Query notes (`ReplQueryService`):
 - **`MSsubscriptions` is one row per article**, so it is grouped down to (publication, subscriber, subscriber
   database) — the grain everyone thinks in — before the agent's history is applied. The `MAX()`s over
   group-constant columns satisfy `GROUP BY`; they are not combining anything.
+- **`subscriber_id < 0` is filtered out** of subscriptions, the publication's subscription count and the
+  distribution agents. Those are the virtual subscriptions (`-1`/`-2`, `subscriber_db = 'virtual'`) a publication
+  with `immediate_sync` or `allow_anonymous` keeps for its snapshot, each with a placeholder agent that never
+  runs. Left in, every such publication showed two extra "subscriptions" that looked like duplicates.
 - **The latest history row is fetched with `OUTER APPLY … TOP (1) … ORDER BY time DESC` per agent**, never a
   window function over the whole table. `MSdistribution_history` is the largest table in a busy distribution
   database; a ranked scan of all of it on a timer is not acceptable, and agent counts are small.

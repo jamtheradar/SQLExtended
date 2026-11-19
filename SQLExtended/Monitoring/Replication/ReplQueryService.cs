@@ -204,7 +204,7 @@ SELECT
     pub.description,
     (SELECT COUNT(*) FROM dbo.MSarticles AS a WHERE a.publication_id = pub.publication_id) AS article_count,
     (SELECT COUNT(DISTINCT CONVERT(nvarchar(30), s.subscriber_id) + N'|' + ISNULL(s.subscriber_db, N''))
-       FROM dbo.MSsubscriptions AS s WHERE s.publication_id = pub.publication_id) AS subscription_count,
+       FROM dbo.MSsubscriptions AS s WHERE s.publication_id = pub.publication_id AND s.subscriber_id >= 0) AS subscription_count,
     snap.runstatus AS snapshot_runstatus,
     snap.time      AS snapshot_time
 FROM dbo.MSpublications AS pub
@@ -290,6 +290,10 @@ WITH subs AS (
         COUNT(*) AS article_count
     FROM dbo.MSsubscriptions AS s
     JOIN dbo.MSpublications AS p ON p.publication_id = s.publication_id
+    -- subscriber_id -1 and -2 (subscriber_db 'virtual') are the virtual subscriptions the distributor keeps for a
+    -- publication with immediate_sync or allow_anonymous, to hold its snapshot for new subscribers. They are not
+    -- subscriptions anyone made, their agents never run, and Replication Monitor hides them the same way.
+    WHERE s.subscriber_id >= 0
     GROUP BY p.publisher_id, p.publisher_db, p.publication, p.publication_type, p.retention,
              {(caps.HasRetentionPeriodUnit ? "p.retention_period_unit," : "")} s.subscriber_id, s.subscriber_db
 )
@@ -526,6 +530,7 @@ OUTER APPLY (
     FROM dbo.MSdistribution_history AS x WHERE x.agent_id = da.id ORDER BY x.time DESC
 ) AS h
 OUTER APPLY (SELECT TOP (1) e.error_text FROM dbo.MSrepl_errors AS e WHERE e.id = h.error_id) AS err
+WHERE da.subscriber_id >= 0  -- the virtual subscriptions' placeholder agents (see SubscriptionsSql)
 ORDER BY publisher, da.publisher_db, da.publication, subscriber;";
     }
 
