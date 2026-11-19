@@ -1,6 +1,6 @@
 <Window x:Class="SQLExtended.SchemaCompare.Shell.ConnectWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sqlxtheme="clr-namespace:SQLExtended.Theme"
         Title="Choose a database — Schema Compare" Width="480" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner" Background="{DynamicResource SqlxSurface}" Foreground="{DynamicResource SqlxText}"
         FontFamily="Segoe UI" FontSize="12.5" UseLayoutRounding="True">
@@ -58,7 +58,7 @@
                 <ComboBox x:Name="DatabaseBox" IsEditable="True" DropDownOpened="OnDatabaseDropDown" MaxDropDownHeight="320" />
             </DockPanel>
 
-            <TextBlock x:Name="StatusText" Style="{StaticResource Muted}" Margin="2,10,0,0" TextWrapping="Wrap" />
+            <TextBlock x:Name="StatusText" sqlxtheme:StatusFooter.Track="True" Style="{StaticResource Muted}" Margin="2,10,0,0" TextWrapping="Wrap" />
         </StackPanel>
     </DockPanel>
 </Window>

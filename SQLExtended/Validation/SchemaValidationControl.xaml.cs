@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using SQLExtended.Cache;
+using SQLExtended.Theme;
 using SQLExtended.Validation.Models;
 using Microsoft.VisualStudio.Shell;
 
@@ -299,6 +300,7 @@ public partial class SchemaValidationControl : UserControl
     private void ShowProgress(bool running)
     {
         ValidationProgressBar.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+        StatusFooter.SetBusy(StatusText, running);
         if (running)
             ValidationProgressBar.Value = 0;
     }

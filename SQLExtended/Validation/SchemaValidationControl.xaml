@@ -1,6 +1,6 @@
 ﻿<UserControl x:Class="SQLExtended.Validation.SchemaValidationControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sqlxtheme="clr-namespace:SQLExtended.Theme"
              Background="{DynamicResource SqlxSurface}">
 
     <UserControl.Resources>
@@ -299,7 +299,7 @@
                          Background="{DynamicResource SqlxSurfaceRaised}" BorderBrush="{DynamicResource SqlxBorder}" Foreground="{DynamicResource SqlxProgress}"
                          VerticalAlignment="Center"/>
 
-            <TextBlock x:Name="StatusText"
+            <TextBlock x:Name="StatusText" sqlxtheme:StatusFooter.Track="True"
                        Grid.Column="1"
                        Text="Select database(s) and click Validate"
                        Foreground="{DynamicResource SqlxTextMuted}"

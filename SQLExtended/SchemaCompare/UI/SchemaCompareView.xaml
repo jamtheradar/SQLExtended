@@ -1,6 +1,6 @@
 <UserControl x:Class="SQLExtended.SchemaCompare.UI.SchemaCompareView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sqlxtheme="clr-namespace:SQLExtended.Theme"
         xmlns:ui="clr-namespace:SQLExtended.SchemaCompare.UI"
         Background="{DynamicResource SqlxSurface}" Foreground="{DynamicResource SqlxText}"
         FontFamily="Segoe UI" FontSize="12.5" UseLayoutRounding="True" Focusable="True">
@@ -114,7 +114,7 @@
                 </Border>
                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource Muted}" VerticalAlignment="Center" FontSize="11.5"
                            Text="Alt+↓/↑ difference   ·   Ctrl+Alt+↓/↑ object   ·   F5 compare" />
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource SqlxTextChrome}" />
+                <TextBlock x:Name="StatusText" sqlxtheme:StatusFooter.Track="True" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource SqlxTextChrome}" />
             </DockPanel>
         </Border>
 

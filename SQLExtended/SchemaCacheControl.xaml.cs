@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.Shell;
 using SQLExtended.Cache;
+using SQLExtended.Theme;
 using SQLExtended.Cache.Models;
 using SQLExtended.Decryption;
 using SQLExtended.Export;
@@ -652,6 +653,7 @@ public partial class SchemaCacheControl : UserControl
         _exportCts = new CancellationTokenSource();
         var ct = _exportCts.Token;
         _exporting = true;
+        StatusFooter.SetBusy(StatusText, true);
         _statusSticky = false;
         ExportButton.Content = "Cancel export";
         StatusText.Text = $"Exporting to {folder}…";
@@ -684,6 +686,7 @@ public partial class SchemaCacheControl : UserControl
         ThreadHelper.ThrowIfNotOnUIThread();
 
         _exporting = false;
+        StatusFooter.SetBusy(StatusText, false);
         ExportButton.Content = "Export…";
         _exportCts?.Dispose();
         _exportCts = null;

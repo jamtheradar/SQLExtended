@@ -33,6 +33,7 @@
   <ItemGroup>
     <Compile Include="..\SQLExtended\Theme\ThemePalette.cs" Link="Theme\ThemePalette.cs" />
     <Compile Include="..\SQLExtended\Theme\ThemeSnapshot.cs" Link="Theme\ThemeSnapshot.cs" />
+    <Compile Include="..\SQLExtended\Theme\StatusFooterText.cs" Link="Theme\StatusFooterText.cs" />
   </ItemGroup>
 
   <!-- ScriptCast's pure half: GO splitting, Cast List JSON, the may-change check and the result merge. The runner and pane are not linked. -->

@@ -1,6 +1,6 @@
 <Window x:Class="SQLExtended.EnvTabs.EnvTabRulesDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sqlxtheme="clr-namespace:SQLExtended.Theme"
         Title="Environment Tabs"
         Width="900" Height="640"
         MinWidth="720" MinHeight="520"
@@ -132,7 +132,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="110"/>
                 </Grid.RowDefinitions>
-                <TextBlock x:Name="StatusText" Grid.Row="0" Foreground="{DynamicResource SqlxTextSubtle}" TextWrapping="Wrap" Margin="0,4,0,6"/>
+                <TextBlock x:Name="StatusText" sqlxtheme:StatusFooter.Track="True" Grid.Row="0" Foreground="{DynamicResource SqlxTextSubtle}" TextWrapping="Wrap" Margin="0,4,0,6"/>
                 <ListBox x:Name="DiagnosticsList" Grid.Row="1" Background="{DynamicResource SqlxSurfaceAlt}" Foreground="{DynamicResource SqlxTextChrome}" BorderBrush="{DynamicResource SqlxBorder}"/>
             </Grid>
         </Expander>

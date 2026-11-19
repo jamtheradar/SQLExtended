@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using SQLExtended.SchemaCompare.Engine;
+using SQLExtended.Theme;
 
 namespace SQLExtended.SchemaCompare.UI;
 
@@ -235,6 +236,7 @@ public partial class SchemaCompareView : UserControl
     {
         _busy = busy;
         CompareButton.IsEnabled = !busy;
+        StatusFooter.SetBusy(StatusText, busy);
         Cursor = busy ? System.Windows.Input.Cursors.AppStarting : null;
     }
 

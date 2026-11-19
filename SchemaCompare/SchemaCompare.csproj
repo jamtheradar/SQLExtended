@@ -80,6 +80,8 @@
   <ItemGroup>
     <Compile Include="..\SQLExtended\Theme\ThemePalette.cs" Link="Linked\Theme\ThemePalette.cs" />
     <Compile Include="..\SQLExtended\Theme\ThemeSnapshot.cs" Link="Linked\Theme\ThemeSnapshot.cs" />
+    <Compile Include="..\SQLExtended\Theme\StatusFooter.cs" Link="Linked\Theme\StatusFooter.cs" />
+    <Compile Include="..\SQLExtended\Theme\StatusFooterText.cs" Link="Linked\Theme\StatusFooterText.cs" />
   </ItemGroup>
 
   <ItemGroup>

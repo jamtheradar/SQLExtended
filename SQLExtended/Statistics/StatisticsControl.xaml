@@ -1,6 +1,6 @@
 <UserControl x:Class="SQLExtended.Statistics.StatisticsControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sqlxtheme="clr-namespace:SQLExtended.Theme"
              Background="{DynamicResource SqlxSurface}">
 
     <UserControl.Resources>
@@ -156,7 +156,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock x:Name="StatusText"
+            <TextBlock x:Name="StatusText" sqlxtheme:StatusFooter.Track="True"
                        Grid.Column="0"
                        Text="Run a query with SET STATISTICS IO, TIME ON, then press Ctrl+K, Ctrl+G."
                        Foreground="{DynamicResource SqlxTextMuted}"

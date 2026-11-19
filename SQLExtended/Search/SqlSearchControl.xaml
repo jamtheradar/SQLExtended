@@ -1,6 +1,6 @@
 ﻿<UserControl x:Class="SQLExtended.Search.SqlSearchControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sqlxtheme="clr-namespace:SQLExtended.Theme"
              xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
              Background="{DynamicResource SqlxSurface}">
 
@@ -454,7 +454,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock x:Name="StatusText"
+            <TextBlock x:Name="StatusText" sqlxtheme:StatusFooter.Track="True"
                        Grid.Column="0"
                        Text="Ready — type to search"
                        Foreground="{DynamicResource SqlxTextMuted}"

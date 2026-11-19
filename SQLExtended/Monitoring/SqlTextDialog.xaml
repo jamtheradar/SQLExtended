@@ -1,6 +1,6 @@
 <Window x:Class="SQLExtended.Monitoring.SqlTextDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sqlxtheme="clr-namespace:SQLExtended.Theme"
         xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         Width="800" Height="520"
         MinWidth="400" MinHeight="250"
@@ -45,7 +45,7 @@
         </Border>
 
         <DockPanel Grid.Row="2" Margin="4,8,4,0" LastChildFill="False">
-            <TextBlock x:Name="StatusText" DockPanel.Dock="Left" Foreground="{DynamicResource SqlxTextMuted}" FontSize="11" VerticalAlignment="Center"/>
+            <TextBlock x:Name="StatusText" sqlxtheme:StatusFooter.Track="True" DockPanel.Dock="Left" Foreground="{DynamicResource SqlxTextMuted}" FontSize="11" VerticalAlignment="Center"/>
             <Button DockPanel.Dock="Right" Content="Close" Style="{StaticResource ToolButton}" Click="Close_Click" IsCancel="True" MinWidth="70"/>
             <Button DockPanel.Dock="Right" Content="Copy" Style="{StaticResource ToolButton}" Click="Copy_Click" MinWidth="70" Margin="0,0,8,0"
                     ToolTip="Copy the whole statement to the clipboard (Ctrl+C with nothing selected)"/>

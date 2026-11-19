@@ -22,6 +22,14 @@ the results grid's Find tint (GDI, picks its pair from the cell's own background
   are linked into that shell. Schema Compare's own XAML now lives in `SQLExtended/SchemaCompare/UI/` and is scanned by
   `ThemePaletteTests` like the rest. Linked into the tests.
 
+- `StatusFooter.cs` / `StatusFooterText.cs` — the busy look for a window's status line: `SqlxHighlight`, semibold,
+  3 pt larger while work runs, then back to exactly what the XAML set. Every `StatusText` carries
+  `sqlxtheme:StatusFooter.Track="True"`, which goes busy while the text ends in an ellipsis (optionally `(n of m)`), so
+  **write in-progress status lines with a trailing `…` and settled ones without**. A long job whose progress lines don't
+  all end that way holds `StatusFooter.SetBusy(StatusText, true)` start to finish (export, ScriptCast, validation,
+  compare). Pure WPF; linked into the Schema Compare shell, and the text rule into the tests. A new window's footer
+  needs the attribute too.
+
 ## Where each colour comes from
 
 1. **The selected SSMS theme**, for the roles in `ThemeManager.ShellRoles`. This is what makes Blue or a

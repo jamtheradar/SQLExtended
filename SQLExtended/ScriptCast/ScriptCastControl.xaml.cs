@@ -15,6 +15,7 @@ using System.Windows.Threading;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using SQLExtended.Settings;
+using SQLExtended.Theme;
 using Task = System.Threading.Tasks.Task;
 
 namespace SQLExtended.ScriptCast;
@@ -612,6 +613,7 @@ public partial class ScriptCastControl : UserControl, IDisposable
         CancelButton.IsEnabled = true;
         UpdateTxButtons();
         _progress.Start();
+        StatusFooter.SetBusy(StatusText, true);
         ShowProgress();
 
         Diagnostics.SQLExtendedLog.Info("ScriptCast",
@@ -695,6 +697,7 @@ public partial class ScriptCastControl : UserControl, IDisposable
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         _progress.Stop();
+        StatusFooter.SetBusy(StatusText, false);
         bool cancelled = _cts?.IsCancellationRequested == true;
         _cts?.Dispose();
         _cts = null;
@@ -1081,6 +1084,7 @@ public partial class ScriptCastControl : UserControl, IDisposable
         _cts?.Cancel();
         _poll.Stop();
         _progress.Stop();
+        StatusFooter.SetBusy(StatusText, false);
         _reloadDebounce.Stop();
         _txTimer.Stop();
         SQLExtendedSettings.Changed -= OnSettingsChanged;
