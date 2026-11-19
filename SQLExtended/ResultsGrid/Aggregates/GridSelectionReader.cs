@@ -122,7 +122,9 @@ internal static class GridSelectionReader
     /// for CellBlocks/ColumnBlocks/RowBlocks/SingleRow and remaps only SingleCell/SingleColumn. Getting
     /// this backwards reads a neighbouring column whenever columns have been reordered.</item>
     /// </list>
-    /// <para>Bounds are inclusive: <c>Width == Right - X + 1</c>.</para>
+    /// <para>Bounds are inclusive: <c>Width == Right - X + 1</c>. A UI-indexed block can come back as several ranges,
+    /// one per run of consecutive storage columns (<see cref="GridColumnRuns"/>), because a reordered span of UI columns
+    /// is not a span of storage columns. Ranges are in on-screen column order.</para>
     /// </summary>
     internal static List<CellRange> ResolveRanges(GridControl grid, BlockOfCellsCollection blocks, long numRows, int numCols)
     {
@@ -161,18 +163,21 @@ internal static class GridSelectionReader
                 range.ColEnd = block.Right;
             }
 
-            if (!storageIndexed)
-            {
-                range.ColStart = ToStorageColumn(grid, range.ColStart);
-                range.ColEnd = ToStorageColumn(grid, range.ColEnd);
-            }
-
             range.RowStart = Math.Max(0, range.RowStart);
             range.RowEnd = Math.Min(numRows - 1, range.RowEnd);
             if (range.RowEnd < range.RowStart || range.ColEnd < range.ColStart)
                 continue;
 
-            ranges.Add(range);
+            if (storageIndexed)
+            {
+                ranges.Add(range);
+                continue;
+            }
+
+            // Every UI column mapped on its own: after a header drag, the storage columns between the two ends' storage
+            // indexes are not the ones on screen between them (issue #16). An unreordered grid gives one run, as before.
+            foreach (var (start, end) in GridColumnRuns.FromUiSpan(range.ColStart, range.ColEnd, ui => ToStorageColumn(grid, ui)))
+                ranges.Add(new CellRange { RowStart = range.RowStart, RowEnd = range.RowEnd, ColStart = start, ColEnd = end });
         }
         return ranges;
     }

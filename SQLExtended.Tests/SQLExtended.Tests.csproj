@@ -114,6 +114,7 @@
   -->
   <ItemGroup>
     <Compile Include="..\SQLExtended\ResultsGrid\Aggregates\GridAggregateCalculator.cs" Link="ResultsGrid\Aggregates\GridAggregateCalculator.cs" />
+    <Compile Include="..\SQLExtended\ResultsGrid\Aggregates\GridColumnRuns.cs" Link="ResultsGrid\Aggregates\GridColumnRuns.cs" />
   </ItemGroup>
 
   <!--

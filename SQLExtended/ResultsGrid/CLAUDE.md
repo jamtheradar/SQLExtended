@@ -37,6 +37,12 @@ decompiling `Microsoft.SqlServer.GridControl.dll` rather than inferred — each 
   `CellBlocks`/`ColumnBlocks`/`RowBlocks`/`SingleRow` and remaps only `SingleCell`/`SingleColumn`. Getting
   this backwards reads a neighbouring column once columns have been reordered. Use the public
   `GetStorageColumnIndexByUIIndex` for the UI-indexed cases; never assume identity.
+- **Map every UI column, not just a block's ends.** After a header drag, the UI columns between `X` and `Right` are
+  not the storage columns between the two ends' storage indexes. Mapping only the ends read unselected columns, missed
+  selected ones, and silently dropped a block whose mapped ends came out reversed (issue #16). `GridColumnRuns` maps
+  each one and groups them into runs of consecutive storage columns, so one UI block can resolve to several
+  `CellRange`s, in on-screen order. Callers walk `ColStart..ColEnd` per range and need not know. Pinned by
+  `SQLExtended.Tests/ResultsGrid/GridColumnRunsTests.cs`.
 - **`Right` and `Bottom` are inclusive** (`Width == Right - X + 1`), and **storage column 0 is the
   row-number column** — data starts at 1, the same convention `ResultsGridReader` uses. A whole-row
   selection always includes column 0, and totalling row numbers is never what was meant.
