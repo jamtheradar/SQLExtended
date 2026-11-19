@@ -11,7 +11,7 @@ namespace SQLExtended.Tests.ResultsGrid;
 
 /// <summary>
 /// Export to Excel's workbook writer. Every mistake it can make opens in Excel without complaint — a 007 that became 7, a
-/// rounded 17-digit id, a datetime2 shown to the millisecond — so what is pinned here is how each value is typed.
+/// rounded 17-digit id, a datetime2 column left as unsortable text — so what is pinned here is how each value is typed.
 /// </summary>
 public class XlsxWriterTests
 {
@@ -111,11 +111,29 @@ public class XlsxWriterTests
     }
 
     [Fact]
-    public void ADatetime2WithPrecisionBelowTheMillisecondStaysText()
+    public void ADatetime2WithPrecisionBelowTheMillisecondIsADateCutToTheMillisecond()
     {
-        var (sheet, _, _) = Write(Data(new[] { "T" }, new[] { "datetime2(7)" }, new[] { "2026-11-17 09:45:12.1234567" }, new[] { "2026-11-17 09:45:12.1230000" }));
-        Assert.Equal("2026-11-17 09:45:12.1234567", Text(Cell(sheet, "A2")));
+        // datetime2 defaults to scale 7 and real timestamps fill it: kept as text, a typical column would not sort as dates.
+        var (sheet, result, _) = Write(Data(new[] { "T" }, new[] { "datetime2(7)" },
+            new[] { "2026-11-17 09:45:12.1239999" }, new[] { "2026-11-17 09:45:12.1230000" }, new[] { "1899-12-31 23:59:59.1234567" }));
+
+        XElement cut = Cell(sheet, "A2");
+        Assert.Null(cut.Attribute("t"));
+        Assert.Equal("4", (string)cut.Attribute("s"));
+        Assert.Equal(new DateTime(2026, 11, 17, 9, 45, 12, 123).ToOADate(), double.Parse(cut.Element(Main + "v").Value, CultureInfo.InvariantCulture));
         Assert.Null(Cell(sheet, "A3").Attribute("t"));
+        Assert.Equal("1899-12-31 23:59:59.1234567", Text(Cell(sheet, "A4")));   // before 1900-03-01: still text, and not counted
+        Assert.Equal(1, result.TruncatedTimes);
+    }
+
+    [Fact]
+    public void TheFilterDatabaseNameCoversTheAutofilterRange()
+    {
+        var (sheet, _, zip) = Write(Data(new[] { "A", "B", "C" }, new[] { "int", "int", "int" }, new[] { "1", "2", "3" }, new[] { "4", "5", "6" }));
+        using var s = zip.GetEntry("xl/workbook.xml").Open();
+        string defined = XDocument.Load(s).Descendants(Main + "definedName").Single(d => (string)d.Attribute("name") == "_xlnm._FilterDatabase").Value;
+        Assert.Equal("A1:C3", (string)sheet.Descendants(Main + "autoFilter").Single().Attribute("ref"));
+        Assert.Equal("'Results'!$A$1:$C$3", defined);
     }
 
     [Fact]

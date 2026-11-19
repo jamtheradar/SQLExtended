@@ -16,6 +16,9 @@ public sealed class XlsxWriteResult
 
     /// <summary>Text cells cut to Excel's 32,767-character limit. Excel refuses ("repairs") a file with a longer cell.</summary>
     public int TruncatedCells { get; set; }
+
+    /// <summary>Date cells whose time had digits below the millisecond, cut to it — Excel keeps milliseconds. Typically <c>datetime2(7)</c>.</summary>
+    public int TruncatedTimes { get; set; }
 }
 
 /// <summary>
@@ -27,8 +30,13 @@ public sealed class XlsxWriteResult
 ///
 /// <para>Wherever a typed cell would show Excel something other than what the grid showed, it is written as text instead,
 /// because a rounded number in a spreadsheet looks exactly like a right one: an exact numeric with more than 15 significant
-/// digits (Excel keeps 15), a date before 1900-03-01 (Excel's calendar starts in 1900 and wrongly has a 29 February), and a
-/// time with precision below the millisecond (Excel keeps milliseconds). Text that does not parse is also kept as text.</para>
+/// digits (Excel keeps 15) and a date before 1900-03-01 (Excel's calendar starts in 1900 and wrongly has a 29 February).
+/// Text that does not parse is also kept as text.</para>
+///
+/// <para>A time with digits below the millisecond is the exception: it is cut to the millisecond and still written as a date,
+/// and counted in <see cref="XlsxWriteResult.TruncatedTimes"/>. <c>datetime2</c> defaults to scale 7 and real timestamps
+/// nearly always fill it, so keeping those as text would leave a typical <c>datetime2</c> column one you cannot sort, filter
+/// or calculate with as dates — and microseconds are what almost nobody opening the file needs.</para>
 ///
 /// <para>Free of the grid assembly so the test project links it (<c>SQLExtended.Tests/ResultsGrid/XlsxWriterTests.cs</c>).</para>
 /// </summary>
@@ -66,7 +74,7 @@ public static class XlsxWriter
         {
             WriteEntry(zip, "[Content_Types].xml", ContentTypes);
             WriteEntry(zip, "_rels/.rels", RootRels);
-            WriteEntry(zip, "xl/workbook.xml", Workbook(SafeSheetName(sheetName)));
+            WriteEntry(zip, "xl/workbook.xml", Workbook(SafeSheetName(sheetName), columns, data.Rows.Count + 1L));
             WriteEntry(zip, "xl/_rels/workbook.xml.rels", WorkbookRels);
             WriteEntry(zip, "xl/styles.xml", Styles);
 
@@ -176,8 +184,9 @@ public static class XlsxWriter
             case CellKind.Date:
             case CellKind.DateTime:
             case CellKind.DateTimeMs:
-                if (TryDate(value, kind, out string serial))
+                if (TryDate(value, kind, out string serial, out bool truncated))
                 {
+                    if (truncated) result.TruncatedTimes++;
                     WriteValue(xml, ns, cellRef, serial, kind == CellKind.Date ? StyleDate : kind == CellKind.DateTime ? StyleDateTime : StyleDateTimeMs);
                     return;
                 }
@@ -251,7 +260,7 @@ public static class XlsxWriter
             case "datetime":
                 return CellKind.DateTimeMs;
             case "datetime2":
-                // datetime2(0) has no fraction to show; the default scale is 7.
+                // datetime2(0) has no fraction to show; the default scale is 7, cut to the millisecond by TryDate.
                 return paren >= 0 && t.Substring(paren).Trim('(', ')', ' ') == "0" ? CellKind.DateTime : CellKind.DateTimeMs;
             default:
                 return CellKind.Text;
@@ -297,16 +306,25 @@ public static class XlsxWriter
         return digits.Length;
     }
 
-    /// <summary>The grid's date text as an Excel serial number, or false to keep it as text.</summary>
-    internal static bool TryDate(string text, CellKind kind, out string serial)
+    /// <summary>
+    /// The grid's date text as an Excel serial number, or false to keep it as text (it does not parse, or it is before
+    /// 1900-03-01). Digits below the millisecond are cut off, and <paramref name="truncated"/> says so.
+    /// </summary>
+    internal static bool TryDate(string text, CellKind kind, out string serial, out bool truncated)
     {
         serial = null;
+        truncated = false;
         string s = text.Trim();
         string[] formats = kind == CellKind.Date ? DateFormats : DateTimeFormats;
         if (!DateTime.TryParseExact(s, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime value))
             return false;
         if (value < FirstExcelDate) return false;
-        if (value.Ticks % TimeSpan.TicksPerMillisecond != 0) return false;
+        long belowMs = value.Ticks % TimeSpan.TicksPerMillisecond;
+        if (belowMs != 0)
+        {
+            value = new DateTime(value.Ticks - belowMs);
+            truncated = true;
+        }
 
         serial = value.ToOADate().ToString("R", CultureInfo.InvariantCulture);
         return true;
@@ -408,7 +426,9 @@ public static class XlsxWriter
         writer.Write(content);
     }
 
-    private static string Workbook(string sheetName)
+    /// <param name="rows">Rows of the sheet, header included: the <c>_xlnm._FilterDatabase</c> name covers the same range
+    /// as the sheet's <c>autoFilter</c>, as Excel itself writes it.</param>
+    private static string Workbook(string sheetName, int columns, long rows)
     {
         var sb = new StringBuilder();
         using (var xml = XmlWriter.Create(sb, new XmlWriterSettings { OmitXmlDeclaration = true }))
@@ -429,7 +449,8 @@ public static class XlsxWriter
             xml.WriteAttributeString("name", "_xlnm._FilterDatabase");
             xml.WriteAttributeString("localSheetId", "0");
             xml.WriteAttributeString("hidden", "1");
-            xml.WriteString("'" + sheetName.Replace("'", "''") + "'!$A$1");
+            string range = columns > 0 ? "$A$1:$" + ColumnLetters(columns - 1) + "$" + rows.ToString(CultureInfo.InvariantCulture) : "$A$1";
+            xml.WriteString("'" + sheetName.Replace("'", "''") + "'!" + range);
             xml.WriteEndElement();
             xml.WriteEndElement();
             xml.WriteEndElement();

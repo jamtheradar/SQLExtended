@@ -238,7 +238,7 @@ order — with a cell no block covers left empty. NULL is an empty cell; the emp
   Results As — a spreadsheet missing rows says nothing about it. `IsCellDataNull` is bound as a delegate, not
   `MethodInfo.Invoke`, because it is called once per cell.
 - **The workbook goes to `<path>.tmp` and is moved over the chosen path**, so a failure (the file open in Excel is the
-  usual one) never leaves a half-written workbook behind.
+  usual one) never leaves a half-written workbook behind. On failure the `.tmp` is deleted too.
 
 `XlsxWriter` is a minimal OOXML writer (one sheet, inline strings, `System.IO.Compression`'s `ZipArchive` — a framework
 assembly, nothing added to the VSIX). It is free of the grid assembly and linked into the tests
@@ -249,9 +249,15 @@ assembly, nothing added to the VSIX). It is free of the grid assembly and linked
   `smalldatetime`, `datetime` and `datetime2` are date serials with a `yyyy-mm-dd[ hh:mm:ss[.000]]` format. Everything
   else — character types, `uniqueidentifier`, `time`, `datetimeoffset`, `sql_variant`, a column with no type — is text.
 - **Where a typed cell would show something other than the grid did, it is text instead**: an exact numeric with more
-  than 15 significant digits (Excel keeps 15, so a `bigint` id would round), a date before 1900-03-01 (Excel's 1900
-  calendar has a 29 February that never was), and a `datetime2` with precision below the millisecond. Text that does not
-  parse as its type is also kept as text, never dropped.
+  than 15 significant digits (Excel keeps 15, so a `bigint` id would round) and a date before 1900-03-01 (Excel's 1900
+  calendar has a 29 February that never was). Text that does not parse as its type is also kept as text, never dropped.
+- **A time below the millisecond is the one exception: it is cut to the millisecond and stays a date.** `datetime2`
+  defaults to scale 7 and real timestamps (`SYSDATETIME()`, application writes) nearly always fill it, so the first
+  version — which kept those as text — turned a typical `datetime2` column into text with the odd whole-millisecond value
+  as a date: a column nobody can sort, filter or calculate with. Microseconds are not a rounded `bigint` id; almost nobody
+  opening the file needs them. The cut values are counted (`XlsxWriteResult.TruncatedTimes`) and reported after the export.
+- **`_xlnm._FilterDatabase` covers the same range as the sheet's `autoFilter`**, as Excel writes it. A bare `$A$1` opens,
+  but is not what Excel expects.
 - **Numbers parse invariant first, with thousands separators off**, then current culture — the same `"1,5"` → 15 trap
   the aggregates notes describe.
 - **Control characters go out as Excel's `_xHHHH_` escape**; XML 1.0 cannot carry them and Excel "repairs" (empties) a

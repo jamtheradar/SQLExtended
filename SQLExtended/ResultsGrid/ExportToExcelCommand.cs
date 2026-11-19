@@ -110,11 +110,11 @@ internal sealed class ExportToExcelCommand
         SetStatusBar($"Exporting {data.Rows.Count:N0} row(s) to {Path.GetFileName(path)}...");
 
         XlsxWriteResult result;
+        // Written to a temp file first, so a failure part way never leaves a corrupt workbook at the chosen path.
+        string temp = path + ".tmp";
         try
         {
             await TaskScheduler.Default;
-            // Written to a temp file first, so a failure part way never leaves a corrupt workbook at the chosen path.
-            string temp = path + ".tmp";
             using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
                 result = XlsxWriter.Write(stream, data);
             if (File.Exists(path)) File.Delete(path);
@@ -122,6 +122,10 @@ internal sealed class ExportToExcelCommand
         }
         catch (Exception ex)
         {
+            // Nor a stray .tmp beside it: Write threw, or the target is open in Excel and could not be replaced.
+            try { if (File.Exists(temp)) File.Delete(temp); }
+            catch (Exception cleanup) { Diagnostics.SQLExtendedLog.Warning("ExportToExcel", $"Could not delete {temp}", cleanup); }
+
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             Diagnostics.SQLExtendedLog.Warning("ExportToExcel", "Writing the workbook failed", ex);
             string hint = ex is IOException ? " If the file is open in Excel, close it and try again." : "";
@@ -137,7 +141,10 @@ internal sealed class ExportToExcelCommand
         string truncated = result.TruncatedCells > 0
             ? $"\n\n{result.TruncatedCells:N0} cell(s) were longer than Excel's {XlsxWriter.MaxCellText:N0}-character limit and were cut to it."
             : "";
-        int answer = ShowMessage($"{summary}{truncated}\n\nOpen it now?", truncated.Length > 0 ? OLEMSGICON.OLEMSGICON_WARNING : OLEMSGICON.OLEMSGICON_QUERY, OLEMSGBUTTON.OLEMSGBUTTON_YESNO);
+        string times = result.TruncatedTimes > 0
+            ? $"\n\n{result.TruncatedTimes:N0} date/time value(s) had digits below the millisecond, which Excel does not keep; they were cut to the millisecond."
+            : "";
+        int answer = ShowMessage($"{summary}{truncated}{times}\n\nOpen it now?", truncated.Length > 0 ? OLEMSGICON.OLEMSGICON_WARNING : OLEMSGICON.OLEMSGICON_QUERY, OLEMSGBUTTON.OLEMSGBUTTON_YESNO);
         if (answer == 6 /* IDYES */)
         {
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }); }
