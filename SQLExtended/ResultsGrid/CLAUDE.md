@@ -217,3 +217,50 @@ left out.
 - **Ctrl+Shift+I is taken over from `Edit.ReverseIncrementalSearch`**, deliberately. It is bound in the SQL Query
   Editor scope as well as Global, because the Text Editor binding beats a Global one in a query window (the scope
   rule in the root CLAUDE.md). Pressed in the editor it copies from the window's grid, as the menu item does.
+
+## Export to Excel
+
+`ResultsGrid/ExportToExcelCommand.cs` writes the selected cells, rows or columns of a results grid (Ctrl+A for all of it)
+to a new .xlsx: column names as a bold, frozen header row with an autofilter, then one row per selected row. Several
+Ctrl+Click blocks become one table — every selected row by every selected column, in grid order and on-screen column
+order — with a cell no block covers left empty. NULL is an empty cell; the empty string is an empty *text* cell.
+
+- **It sits directly under SSMS's own "Save Results As..."**, in SQLEditors' `IDG_SQLWB_SAVEPOPUP` group
+  (`guidSQLEditorGroup`, `0xB0`), at priority `0x0110` against Save Results As' `0x0100`. **Group IDs are not in
+  `SQLWorkbenchCommands`** — only commands and menus are. They were read out of the `Menus.ctmenu` byte array embedded in
+  `SQLEditors.dll` (`…Editors.Resources.resources`), decompiled with the VSSDK's own `VSCT.exe SQLEditors.cto out.vsct`.
+  That is the way to find any other SSMS group. SSMS also places this group on the **Query** menu, so the item shows there
+  too; it is `DynamicVisibility` and hidden when the active window has no grid, as Save Results As is.
+- **The selection comes from `GridSelectionReader.ResolveRanges`**, so the whole-column and UI-vs-storage-index traps
+  are handled where they are for the aggregates pane and Copy as IN Filter.
+- **Cells are read on the UI thread; only the file is written in the background.** The grid is a WinForms control. Over
+  `MaxCells` (2,000,000), or more rows than an Excel sheet holds, it **refuses and exports nothing**, pointing at Save
+  Results As — a spreadsheet missing rows says nothing about it. `IsCellDataNull` is bound as a delegate, not
+  `MethodInfo.Invoke`, because it is called once per cell.
+- **The workbook goes to `<path>.tmp` and is moved over the chosen path**, so a failure (the file open in Excel is the
+  usual one) never leaves a half-written workbook behind. On failure the `.tmp` is deleted too.
+
+`XlsxWriter` is a minimal OOXML writer (one sheet, inline strings, `System.IO.Compression`'s `ZipArchive` — a framework
+assembly, nothing added to the VSIX). It is free of the grid assembly and linked into the tests
+(`SQLExtended.Tests/ResultsGrid/XlsxWriterTests.cs`), because every mistake it can make opens in Excel without complaint:
+
+- **Cells are typed by the column's SQL type, never by whether the text looks numeric** — the `007` rule again, as in
+  `InFilterBuilder`. Integer, decimal, money and bit types are numbers; `float`/`real` are numbers; `date`,
+  `smalldatetime`, `datetime` and `datetime2` are date serials with a `yyyy-mm-dd[ hh:mm:ss[.000]]` format. Everything
+  else — character types, `uniqueidentifier`, `time`, `datetimeoffset`, `sql_variant`, a column with no type — is text.
+- **Where a typed cell would show something other than the grid did, it is text instead**: an exact numeric with more
+  than 15 significant digits (Excel keeps 15, so a `bigint` id would round) and a date before 1900-03-01 (Excel's 1900
+  calendar has a 29 February that never was). Text that does not parse as its type is also kept as text, never dropped.
+- **A time below the millisecond is the one exception: it is cut to the millisecond and stays a date.** `datetime2`
+  defaults to scale 7 and real timestamps (`SYSDATETIME()`, application writes) nearly always fill it, so the first
+  version — which kept those as text — turned a typical `datetime2` column into text with the odd whole-millisecond value
+  as a date: a column nobody can sort, filter or calculate with. Microseconds are not a rounded `bigint` id; almost nobody
+  opening the file needs them. The cut values are counted (`XlsxWriteResult.TruncatedTimes`) and reported after the export.
+- **`_xlnm._FilterDatabase` covers the same range as the sheet's `autoFilter`**, as Excel writes it. A bare `$A$1` opens,
+  but is not what Excel expects.
+- **Numbers parse invariant first, with thousands separators off**, then current culture — the same `"1,5"` → 15 trap
+  the aggregates notes describe.
+- **Control characters go out as Excel's `_xHHHH_` escape**; XML 1.0 cannot carry them and Excel "repairs" (empties) a
+  file that has them. A literal `_xHHHH_` in the data is therefore escaped as `_x005F_xHHHH_`, or Excel would decode it.
+  A lone surrogate becomes U+FFFD. Text over Excel's 32,767-character cell limit is cut, counted, and reported after the
+  export.

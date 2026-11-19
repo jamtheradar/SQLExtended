@@ -108,6 +108,12 @@
     <Compile Include="..\SQLExtended\Align\ColumnAligner.cs" Link="Align\ColumnAligner.cs" />
   </ItemGroup>
 
+  <!-- Export to Excel's workbook writer: a number typed wrong opens in Excel as a plausible, wrong value. -->
+  <ItemGroup>
+    <Compile Include="..\SQLExtended\ResultsGrid\XlsxWriter.cs" Link="ResultsGrid\XlsxWriter.cs" />
+    <Reference Include="System.IO.Compression" />
+  </ItemGroup>
+
   <!--
     The grid-aggregate arithmetic and its formatting. Free of the GridControl assembly (that half lives in
     GridSelectionReader) so it can be linked here — and worth linking, because every mistake it can make is a

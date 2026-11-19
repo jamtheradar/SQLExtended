@@ -351,6 +351,8 @@
     <!-- WinForms: the Object Explorer tree is a System.Windows.Forms.TreeView whose
 		     ContextMenuStrip we extend (ObjectExplorerMenuService). -->
     <Reference Include="System.Windows.Forms" />
+    <!-- Export to Excel: an .xlsx is a zip (XlsxWriter). Framework assembly, nothing to ship in the VSIX. -->
+    <Reference Include="System.IO.Compression" />
   </ItemGroup>
 
   <!-- T-SQL syntax highlighting definition for AvalonEdit (embedded resource) -->
