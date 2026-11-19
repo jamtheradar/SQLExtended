@@ -145,3 +145,32 @@ but none of the staging or fingerprint machinery, because none of it applies her
   (`ReportMirrorTests`).
 - Not yet verified against a live report server: the column types and Type codes come from the documented catalog
   schema, and the mirror and naming are unit-tested.
+
+## Query exports
+
+`QueryExporter` exports `queries` entries: arbitrary SQL, one file per row or one per result. It's the SSRS export's
+model, not the schema export's. Everything is read into memory first, then `ReportMirror.Apply` mirrors the folder,
+which the query owns outright. No staging and no fingerprint.
+
+- **`QueryOutput` is the pure half** (formatting, file naming, the delete brake), linked into the net48 tests
+  (`QueryOutputTests`). It must compile on both frameworks: no records, no `string.Contains(string, StringComparison)`.
+  `Newtonsoft.Json.Formatting` has to be written in full there, because the test project also has a `SQLExtended.Formatting`
+  namespace.
+- **Determinism is the contract.** The same rows must give the same bytes, or a quiet night commits. `FormatValue` has
+  one invariant form per type, and JSON numbers go through it (`WriteRawValue`) so JSON and text agree. Don't let
+  Newtonsoft format dates or doubles itself. The tool doesn't police volatile columns; that's the query author's job,
+  and the README and samples say so.
+- **Nothing that fails may look like a drop**, by folder: a folder is mirrored only when every target writing into it
+  read cleanly, returned at least `minRows` rows, passed `ValidateColumns`, and stays within `maxDeletePercent`
+  (more than one file *and* over the percentage; `--force` overrides). Otherwise it is untouched and the run exits 1.
+  Folders that did export are still committed, as one commit per query (`GitRepository.CommitQuery`, with every
+  target folder in the pathspec).
+- **Names stay inside the folder.** `ResolvePath` fills tokens per path segment, so a `/` or `\` in a value becomes `_`,
+  and `..` becomes `_`. Target folders are resolved the same way in `QueryConfig.Validate`. `{target}` is reserved: a
+  result column named `target` is refused rather than guessed between.
+- **Overlap is refused at load.** A query folder equal to, inside, or around any other owner's folder would have one
+  side deleting the other's files (or see them as dropped databases). A query's own targets may share a folder.
+- The query runs in a transaction that is always rolled back. That's a guard, not a permission model.
+- Verified on LocalDB: two targets, a csv singleFile, a 0-row query (refused by `minRows`), an unchanged rerun (0
+  changes), the delete brake (refused, then `--force`), the commits in a scratch repository, and the Scheduler and SQL
+  Agent samples. The Hangfire sample hasn't been run against a real Hangfire database yet.

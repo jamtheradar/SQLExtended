@@ -6,7 +6,7 @@ using System.Threading;
 namespace SQLExtended.SchemaExporter;
 
 /// <summary>
-/// SchemaExporter [config.json] [--server NAME] [--full] [--no-git] [--no-push] [--push-only] [--verbose]
+/// SchemaExporter [config.json] [--server NAME] [--full] [--no-git] [--no-push] [--push-only] [--force] [--queries-only] [--verbose]
 ///
 /// Exit codes, for Task Scheduler's "last run result": 0 every server exported (warnings allowed), 1 at least one
 /// server or the git step failed, 2 bad arguments or config, 3 cancelled.
@@ -18,7 +18,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         string configPath = null, onlyServer = null;
-        bool noGit = false, noPush = false, verbose = false, full = false, pushOnly = false;
+        bool noGit = false, noPush = false, verbose = false, full = false, pushOnly = false, force = false, queriesOnly = false;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -29,6 +29,8 @@ internal static class Program
                 case "--no-push": noPush = true; break;
                 case "--full": full = true; break;
                 case "--push-only": pushOnly = true; break;
+                case "--force": force = true; break;
+                case "--queries-only": queriesOnly = true; break;
                 case "--verbose": case "-v": verbose = true; break;
                 case "--help": case "-h": case "/?": PrintUsage(); return Ok;
                 default:
@@ -46,9 +48,17 @@ internal static class Program
         try { config = ExporterConfig.Load(configPath); }
         catch (ConfigException ex) { Console.Error.WriteLine(ex.Message); return BadConfig; }
 
-        var servers = config.Servers.Where(s => onlyServer == null || string.Equals(s.Name, onlyServer, StringComparison.OrdinalIgnoreCase)).ToList();
-        var reportServers = config.ReportServers.Where(s => onlyServer == null || string.Equals(s.Name, onlyServer, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (servers.Count + reportServers.Count == 0) { Console.Error.WriteLine($"No server named '{onlyServer}' in {configPath}."); return BadConfig; }
+        // --queries-only skips the schema and report servers; --server still narrows it to one query.
+        var servers = config.Servers.Where(s => !queriesOnly && (onlyServer == null || string.Equals(s.Name, onlyServer, StringComparison.OrdinalIgnoreCase))).ToList();
+        var reportServers = config.ReportServers.Where(s => !queriesOnly && (onlyServer == null || string.Equals(s.Name, onlyServer, StringComparison.OrdinalIgnoreCase))).ToList();
+        var queries = config.Queries.Where(q => onlyServer == null || string.Equals(q.Name, onlyServer, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (servers.Count + reportServers.Count + queries.Count == 0)
+        {
+            Console.Error.WriteLine(queriesOnly
+                ? (onlyServer == null ? $"--queries-only, but {configPath} has no queries." : $"No query named '{onlyServer}' in {configPath}.")
+                : $"No server named '{onlyServer}' in {configPath}.");
+            return BadConfig;
+        }
 
         if (noPush) config.Git.Push = false;
         if (pushOnly && !config.Git.Enabled) { Console.Error.WriteLine("--push-only needs git.enabled in the config."); return BadConfig; }
@@ -59,7 +69,8 @@ internal static class Program
 
         using var log = new RunLog(config.LogDirectory, config.LogRetentionDays, verbose);
         log.Info($"SchemaExporter — {servers.Count} server{(servers.Count == 1 ? "" : "s")}" +
-            (reportServers.Count > 0 ? $", {reportServers.Count} report server{(reportServers.Count == 1 ? "" : "s")}" : "") + $" into {config.OutputPath}");
+            (reportServers.Count > 0 ? $", {reportServers.Count} report server{(reportServers.Count == 1 ? "" : "s")}" : "") +
+            (queries.Count > 0 ? $", {queries.Count} quer{(queries.Count == 1 ? "y" : "ies")}" : "") + $" into {config.OutputPath}");
 
         int exit = Ok;
         GitRepository git = null;
@@ -83,8 +94,11 @@ internal static class Program
                     if (!git.CommitServer(server, now)) log.Info($"{server.Name}: nothing uncommitted.");
                 foreach (var server in reportServers)
                     if (!git.CommitReportServer(server, now)) log.Info($"{server.Name}: nothing uncommitted.");
+                foreach (var query in queries)
+                    if (!git.CommitQuery(query, now)) log.Info($"{query.Name}: nothing uncommitted.");
                 servers.Clear();
                 reportServers.Clear();
+                queries.Clear();
             }
 
             foreach (var server in servers)
@@ -134,6 +148,30 @@ internal static class Program
                     log.Info($"{server.Name}: no report changes.");
             }
 
+            foreach (var query in queries)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                log.Info($"{query.Name}: running query…");
+                DateTime started = DateTime.Now;
+
+                try
+                {
+                    // A failed target or a tripped brake leaves its folder alone and is logged; folders that did export
+                    // are still committed.
+                    if (QueryExporter.Export(query, config, log, force, cts.Token).Failed) exit = Failed;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+                {
+                    log.Error($"{query.Name}: export failed, previous files kept — {Innermost(ex)}");
+                    exit = Failed;
+                    continue;
+                }
+
+                if (git != null && !git.CommitQuery(query, started))
+                    log.Info($"{query.Name}: no changes.");
+            }
+
             git?.Push();
         }
         catch (OperationCanceledException)
@@ -161,14 +199,17 @@ internal static class Program
 
 Exports every configured server's schema, one file per object, in the same layout as the
 SQLExtended Schema Cache window's folder export, and every configured report server's
-reports, data sources and datasets, then commits the changes to git.
+reports, data sources and datasets, and every configured query's rows as files,
+then commits the changes to git.
 
   config.json      Defaults to SchemaExporter.json beside the exe. See SchemaExporter.sample.json.
-  --server NAME    Export only this server or report server.
+  --server NAME    Export only this server, report server or query.
   --full           Export every database, even those whose schema fingerprint is unchanged.
   --no-git         Write the tree only; no commit or push.
   --no-push        Commit locally but don't push.
   --push-only      Don't export. Commit anything an earlier run left uncommitted, then push.
+  --force          Let a query delete more of its folder than its maxDeletePercent allows.
+  --queries-only   Run only the queries; skip schema and report servers. Combines with --server.
   --verbose, -v    Show per-database progress.
 
 Exit codes: 0 ok, 1 a server or git failed, 2 bad arguments or config, 3 cancelled.");

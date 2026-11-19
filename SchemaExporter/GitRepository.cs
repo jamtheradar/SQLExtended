@@ -71,12 +71,18 @@ internal sealed class GitRepository(string path, GitOptions options, RunLog log)
     /// <summary>Commits the report server's folder if anything in it changed. Returns whether a commit was made.</summary>
     public bool CommitReportServer(ReportServerConfig server, DateTime takenAt) => CommitFolder(server.Name, server.Folder, "Report", takenAt);
 
-    private bool CommitFolder(string name, string folder, string snapshotOf, DateTime takenAt)
+    /// <summary>Commits every folder the query's targets write into, as one commit. Returns whether a commit was made.</summary>
+    public bool CommitQuery(QueryConfig query, DateTime takenAt) =>
+        CommitFolder(query.Name, query.Targets.Select(t => t.Folder).Distinct(StringComparer.OrdinalIgnoreCase), "Query", takenAt);
+
+    private bool CommitFolder(string name, string folder, string snapshotOf, DateTime takenAt) => CommitFolder(name, new[] { folder }, snapshotOf, takenAt);
+
+    private bool CommitFolder(string name, IEnumerable<string> folders, string snapshotOf, DateTime takenAt)
     {
         // A pathspec that matches nothing is a fatal error to add and commit. The folder can be absent on disk (a
         // server with no readable databases yet) and still be tracked (every database dropped), so ask both.
-        bool folderKnown = Directory.Exists(Path.Combine(path, folder)) || Run($"ls-files -- {Quote(folder)}").Output.Trim().Length > 0;
-        string pathspec = (folderKnown ? Quote(folder) + " " : "") + ".gitattributes";
+        var known = folders.Where(folder => Directory.Exists(Path.Combine(path, folder)) || Run($"ls-files -- {Quote(folder)}").Output.Trim().Length > 0);
+        string pathspec = string.Concat(known.Select(folder => Quote(folder) + " ")) + ".gitattributes";
 
         // The slow step on a first run: add hashes every file, and on a server with tens of thousands of scripts (and
         // an on-access virus scan of each) that is many minutes with no output — killed as a hang the first time.

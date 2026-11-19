@@ -69,5 +69,58 @@
       // Catalog folders to leave out, with everything under them. "/Users Folders" is everyone's My Reports.
       "excludePaths": [ "/Users Folders" ]
     }
+  ],
+
+  // Any query's result set as files, into <outputPath>\<folder>, one commit per query. Whatever the SQL returns is
+  // committed, so leave out anything that changes every night (run times, row counts) or bucket it in the SQL.
+  // The folder is owned outright. Ready-made queries are in samples\queries. Leave out the whole section if unused.
+  "queries": [
+    {
+      "name": "Hangfire jobs",
+      // filePerRow (default) or singleFile.
+      "mode": "filePerRow",
+      // json (default), text ("Column: value" lines), csv (singleFile only) or raw (filePerRow; writes contentColumn as-is).
+      "format": "json",
+      // {Column} tokens and {target}; '/' makes subfolders. The format's extension is added. Required for filePerRow.
+      "fileName": "{target}/{JobId}",
+      // Default: the name. May use {target} to give each target its own folder.
+      "folder": "Jobs/Hangfire",
+      // "query": "SELECT ...", or a file relative to this config.
+      "queryFile": "samples\\queries\\hangfire-recurring-jobs.sql",
+      // Columns left out of the content (they can still name the file).
+      "excludeColumns": [],
+      // Fewer rows than this from a target = assume the query broke; its folder is left alone.
+      "minRows": 1,
+      // Refuse a run that would delete more than this % of a folder's files (one file always allowed). null = off. --force overrides.
+      "maxDeletePercent": 25,
+      // Run the same query against each target. Without targets, give connectionString (and database) on the query itself.
+      // A target without a connectionString or database uses the query's.
+      "targets": [
+        { "name": "DB1", "connectionString": "Data Source=PROD-SQL01;Integrated Security=True;Encrypt=True;TrustServerCertificate=True", "database": "DB1" },
+        { "name": "DB2", "connectionString": "Data Source=PROD-SQL02;Integrated Security=True;Encrypt=True;TrustServerCertificate=True", "database": "DB2" }
+      ]
+    },
+    {
+      "name": "Scheduler jobs",
+      "connectionString": "Data Source=PROD-SQL01;Integrated Security=True;Encrypt=True;TrustServerCertificate=True",
+      "database": "SchedulerDb",
+      "folder": "Jobs/SchJobs",
+      "queryFile": "samples\\queries\\scheduler-jobs.sql",
+      "fileName": "{QueueName}/{PlanName}/{JobSequence} {JobName}"
+    },
+    {
+      // SQL Server Agent jobs, one file per job step, a folder per instance. The login needs SQLAgentReaderRole in msdb.
+      "name": "SQL Agent jobs",
+      "database": "msdb",
+      "folder": "Jobs/SqlAgent/{target}",
+      "queryFile": "samples\\queries\\sqlagent-jobs.sql",
+      "fileName": "{JobName}/{StepId} {StepName}",
+      // An instance with no Agent jobs returns no rows; allow it rather than treat it as broken.
+      "minRows": 0,
+      "targets": [
+        { "name": "PROD-SQL01", "connectionString": "Data Source=PROD-SQL01;Integrated Security=True;Encrypt=True;TrustServerCertificate=True" },
+        { "name": "PROD-SQL02_SALES", "connectionString": "Data Source=PROD-SQL02\\SALES;Integrated Security=True;Encrypt=True;TrustServerCertificate=True" }
+      ]
+    }
   ]
 }

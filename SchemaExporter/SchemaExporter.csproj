@@ -42,6 +42,7 @@
 
   <ItemGroup>
     <None Include="SchemaExporter.sample.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="samples\queries\*.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="README.md" />
     <None Include="CLAUDE.md" />
   </ItemGroup>

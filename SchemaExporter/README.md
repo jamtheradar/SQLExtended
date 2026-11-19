@@ -2,7 +2,8 @@
 
 A console tool that runs nightly. It exports the schema of every SQL Server you list, writing one `.sql` file
 per object, and commits whatever changed to a git repository in Azure DevOps or GitHub. It can also export
-SSRS report servers (reports, shared data sources and datasets, resources) into the same repository. The result is a lazy
+SSRS report servers (reports, shared data sources and datasets, resources) and the results of any query you
+give it (scheduled jobs, config tables, anything) into the same repository. The result is a lazy
 change history: when an object changed, you can see the day it changed and the diff.
 
 The layout matches the **Schema Cache window's Export** in SQLExtended exactly, so you can compare the history
@@ -168,3 +169,54 @@ needed, only `SELECT` on `dbo.Catalog` and `dbo.DataSource` (or `db_datareader` 
 - **The folder belongs to the tool.** A report deleted from the server is deleted from the folder, and so is
   anything else you put there. A path added to `excludePaths` is removed from the folder on the next run.
 - `--server NAME` matches report servers by name too.
+
+## Query exports
+
+Add a `queries` section (see the sample) to export the result of any SQL you write: one file per row, or one file
+for the whole result. It's meant for things that live in tables rather than in the schema, such as Hangfire,
+DataByte.Scheduler and SQL Agent job lists, or config and mapping tables. Each query is committed as
+`<name>: 1 added, 2 changed, 1 removed`, so the history shows the day a job was added, rescheduled, disabled or
+removed. Ready-made queries for those three schedulers are in `samples\queries` (copied beside the exe).
+
+`--queries-only` runs just the queries and skips the schema and report servers. Use it to schedule the queries on
+their own from the same config, for example more often than the nightly schema export. `--server NAME` narrows it
+to one query.
+
+| Setting | Default | |
+|---|---|---|
+| `name` | required | Names the commit; `--server NAME` matches it. Must differ from every server's name. |
+| `query` / `queryFile` | one required | The SQL, or a `.sql` file relative to the config. Only the first result set is used. |
+| `connectionString`, `database` | | The connection when there are no `targets`, and the fallback for targets that leave them out. |
+| `targets` | none | `[{ name, connectionString, database }]`: run the same query against each. `{target}` is the target's name. |
+| `mode` | `filePerRow` | Or `singleFile`. |
+| `format` | `json` | `json`, `text` (`Column: value` lines), `csv` (singleFile only), `raw` (filePerRow only: `contentColumn` written as-is, binary or text). |
+| `fileName` | name (singleFile) | Template of `{Column}` tokens and `{target}`. `/` makes subfolders. Required for filePerRow, which needs at least one column token. |
+| `extension` | from format | `.json`, `.txt`, `.csv`, none for raw. `""` = none. |
+| `folder` | name | Under `outputPath`. `/` makes subfolders; may use `{target}`. |
+| `excludeColumns` | none | Left out of the content, still usable in `fileName`. |
+| `minRows` | `1` | A target returning fewer rows is treated as broken. |
+| `maxDeletePercent` | `25` | A run that would delete more than this share of a folder's files (and more than one file) is refused. `null` = off. |
+| `commandTimeoutSeconds` | `600` | `0` = no limit. |
+
+**Whatever the query returns is committed.** The tool can't tell a value that changes every night from one that
+matters, so keep the SQL to definitions: leave out run times, durations and counts, or turn them into a state that
+only changes when something happens (`Healthy` / `Failing` / `Stale`), as the samples do. Otherwise every query
+commits every night.
+
+- **Output is deterministic.** Columns are written in query order and nulls are explicit. Dates are ISO 8601 without
+  trailing zeros, numbers use `.`, GUIDs are lower case and binary is base64. Text is UTF-8 without a BOM, CRLF. For
+  `singleFile`, put an `ORDER BY` in the query; the run warns if there isn't one.
+- **A failure never shows up as a drop.** Every target is read before anything is written. A folder is left exactly
+  as it was when one of its targets fails, returns fewer than `minRows` rows, or returns a result that doesn't fit the
+  config (a `fileName` token with no column, two columns of one name, or a column named `target`). The same applies
+  when a run would delete more than `maxDeletePercent` of the folder. Exit code 1 in each case. `--force` lets the
+  deletes through for one run.
+- **File names are made safe.** A value can't add a folder or climb out of one (`/`, `\` and `..` become `_`), and
+  empty values become `_`. When two rows map to one file (names are compared ignoring case, like Windows), the first
+  keeps it and the run logs a warning. Targets sharing a folder should put `{target}` in `fileName`.
+- **The folder belongs to the query.** Anything in it that tonight's result doesn't produce is deleted. A query's
+  folder can't be the same as, inside, or around any other server's, report server's or query's folder; the config
+  is refused.
+- **Read-only.** The query runs inside a transaction that is always rolled back, so a statement that writes changes
+  nothing. Still give the login read-only rights only.
+- Columns of CLR types (`hierarchyid`, `geography`, `geometry`) need a `CAST` to text in the query.
