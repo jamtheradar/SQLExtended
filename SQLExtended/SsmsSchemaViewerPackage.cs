@@ -34,7 +34,7 @@ namespace SQLExtended;
 // The 3 is the command table's version: bump it whenever the .vsct changes. The shell re-merges an extension's commands
 // and key bindings only when this changes (or on /setup), so a new command is otherwise missing from Tools > Options >
 // Keyboard and its shortcut does nothing, however many times the DLL is replaced.
-[ProvideMenuResource("Menus.ctmenu", 5)]
+[ProvideMenuResource("Menus.ctmenu", 6)]
 [ProvideToolWindow(typeof(SqlSearchToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 400, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
 [ProvideToolWindow(typeof(SqlHistoryToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 400, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
 [ProvideToolWindow(typeof(ScriptLibraryToolWindow), Style = VsDockStyle.Tabbed, DockedWidth = 500, DockedHeight = 600, Orientation = ToolWindowOrientation.Right)]
@@ -156,6 +156,9 @@ public sealed class SsmsSchemaViewerPackage : AsyncPackage
 
         try { await ResultsGrid.CopyAsInFilterCommand.InitializeAsync(this); }
         catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "CopyAsInFilterCommand init failed", ex); }
+
+        try { await ResultsGrid.ExportToExcelCommand.InitializeAsync(this); }
+        catch (Exception ex) { Diagnostics.SQLExtendedLog.Error("Package", "ExportToExcelCommand init failed", ex); }
 
         // Only does anything when the (off by default) "bring the window to the front when cells are selected"
         // setting is on — that is the one case needing a grid watcher with the window closed.

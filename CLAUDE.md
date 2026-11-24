@@ -91,7 +91,7 @@ load automatically when a file in that folder is opened, but not while merely pl
 | IntelliSense — identifier bracketing, the `sys.` catalog cache (`Cache/SystemCatalogCache.cs`), synonyms, linked servers (`Cache/LinkedServerCache.cs`) | `SQLExtended/IntelliSense/CLAUDE.md` |
 | Rainbow parentheses — the depth scanner, the editor tagger, `SQLExtendedSettings.Changed` | `SQLExtended/Rainbow/CLAUDE.md` |
 | Comment tags and banner headers — the scanner, the five colour schemes, the Fonts and Colors writer | `SQLExtended/Comments/CLAUDE.md` |
-| Results grid — aggregates pane, Find in grid, Go to Column | `SQLExtended/ResultsGrid/CLAUDE.md` |
+| Results grid — aggregates pane, Find in grid, Go to Column, Export to Excel (`XlsxWriter`) | `SQLExtended/ResultsGrid/CLAUDE.md` |
 | Statistics parser (vendored from Brent Ozar — don't edit) | `SQLExtended/Statistics/CLAUDE.md` |
 | Monitoring — pinning and staged collection, common to all four dashboards | `SQLExtended/Monitoring/CLAUDE.md` |
 | … Performance dashboard and the build catalog | `SQLExtended/Monitoring/Performance/CLAUDE.md` |
